@@ -1,6 +1,6 @@
 # MongoDB database
 
-The database layer uses the official MongoDB Node.js driver. There are nine business collections matching the agreed data design: `users`, `ingredients`, `inventory_items`, `recipes`, `recipe_ingredients`, `saved_recipes`, `friendships`, `ingredient_requests`, and `recipe_shares`. A tenth infrastructure collection, `sessions`, stores hashed login tokens with a TTL expiry index.
+The database layer uses the official MongoDB Node.js driver. The application collections are `users`, `ingredients`, `inventory_items`, `recipes`, `recipe_ingredients`, `saved_recipes`, `friendships`, `friend_messages`, `ingredient_requests`, and `recipe_shares`. The `sessions` collection stores hashed login tokens with a TTL expiry index.
 
 ## Local setup (PowerShell)
 

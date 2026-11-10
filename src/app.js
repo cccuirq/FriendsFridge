@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { userRoutes } from './modules/auth/routes.js';
+import { conversationEvents } from './modules/conversations/events.js';
 import { HttpError, json } from './utils/http.js';
 
 const files = {
@@ -10,7 +11,8 @@ const files = {
 };
 
 export function createApp(client, db, options) {
-  const users = userRoutes(client, db, options);
+  const events = conversationEvents();
+  const users = userRoutes(client, db, { ...options, events });
   const server = createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
@@ -41,5 +43,6 @@ export function createApp(client, db, options) {
   });
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
+  server.closeConversationEvents = events.close;
   return server;
 }

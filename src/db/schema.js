@@ -8,11 +8,11 @@ const quantity = (minimum) => ({ bsonType: ['int', 'long', 'double'], minimum, m
 const unique = (key) => ({ key, unique: true });
 const index = (key) => ({ key });
 
-function collection(properties, indexes = [], expressions = []) {
+function collection(properties, indexes = [], expressions = [], optional = {}) {
   const schema = { $jsonSchema: {
     bsonType: 'object', additionalProperties: false,
     required: ['_id', 'created_at', ...Object.keys(properties)],
-    properties: { _id: id, created_at: date, ...properties },
+    properties: { _id: id, created_at: date, ...properties, ...optional },
   } };
   return { validator: expressions.length ? { $and: [schema, ...expressions.map(($expr) => ({ $expr }))] } : schema, indexes };
 }
@@ -28,7 +28,8 @@ export const collections = {
   friendships: collection({ user_low_id: id, user_high_id: id, requested_by: id, status: states('pending', 'accepted', 'declined', 'removed'), updated_at: date }, [unique({ user_low_id: 1, user_high_id: 1 }), index({ user_high_id: 1, status: 1 })], [
     { $lt: ['$user_low_id', '$user_high_id'] },
     { $in: ['$requested_by', ['$user_low_id', '$user_high_id']] },
-  ]),
+  ], { low_received: quantity(0), low_read: quantity(0), high_received: quantity(0), high_read: quantity(0) }),
+  friend_messages: collection({ sender_id: id, recipient_id: id, text: text(1000) }, [index({ sender_id: 1, recipient_id: 1, created_at: -1 }), index({ recipient_id: 1, sender_id: 1, created_at: -1 })], [{ $ne: ['$sender_id', '$recipient_id'] }]),
   ingredient_requests: collection({ requester_id: id, owner_id: id, ingredient_id: id, quantity: quantity(1), message: { bsonType: 'string' }, status: states('pending', 'accepted', 'completed', 'declined', 'cancelled'), updated_at: date }, [index({ owner_id: 1, status: 1 }), index({ requester_id: 1, status: 1 })], [{ $ne: ['$requester_id', '$owner_id'] }]),
   recipe_shares: collection({ recipe_id: id, sender_id: id, recipient_id: id, message: { bsonType: 'string' } }, [unique({ recipe_id: 1, recipient_id: 1 }), index({ recipient_id: 1, created_at: -1 })], [{ $ne: ['$sender_id', '$recipient_id'] }]),
 };

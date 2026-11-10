@@ -18,7 +18,7 @@ test('MongoDB validators, indexes, seeds, permissions and transactions', { timeo
   await db.collection('ingredients').insertOne({ _id: randomUUID(), name: 'egg', category: 'protein', default_unit: 'piece', created_at: new Date() });
   await initializeDatabase(db);
   await initializeDatabase(db);
-  assert.equal((await db.listCollections().toArray()).length, 10);
+  assert.equal((await db.listCollections().toArray()).length, 11);
   await seedIngredients(db);
   await seedIngredients(db);
   assert.equal(await db.collection('ingredients').countDocuments(), 20);

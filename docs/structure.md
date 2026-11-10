@@ -1,6 +1,6 @@
 # Project directory structure
 
-The project uses MongoDB with nine validated business collections and a sessions collection. See [database setup](database/README.md) for connection settings, initialization, seed data, and database tests. The User & Friends frontend and HTTP APIs are implemented; other feature directories remain scaffolding.
+The project uses MongoDB with validated application collections and a sessions collection. See [database setup](database/README.md) for connection settings, initialization, seed data, and database tests. The User & Friends frontend and HTTP APIs are implemented; other feature directories remain scaffolding.
 
 ```text
 409FinalProj/

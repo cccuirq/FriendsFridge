@@ -3,32 +3,180 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Friend's Fridge | Friends</title>
+  <meta name="theme-color" content="#fff9ec" />
+  <title>Friend's Fridge</title>
   <link rel="stylesheet" href="/styles.css" />
   <script type="module" src="/app.js"></script>
 </head>
 <body>
   <main>
-    <header class="brand"><a href="/">Friend's Fridge</a><span>Good food. Better together.</span></header>
+    <header class="brand">
+      <a class="wordmark" href="#my-fridge">
+        <svg width="37" height="40" viewBox="0 0 37 40" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 11a5 5 0 0 1 5-5h13a4 4 0 0 1 4 4v23H9z" fill="#ffdc72"/>
+          <path d="M9 17h22M13 10v3m0 9v4m0 7v3m14-3v3M4 15l-2-2m3-3V7m17 20q2 3 4 0" />
+          <path d="M20 23h.1m8 0h.1" stroke-width="2.7"/>
+        </svg>
+        Friend's Fridge
+      </a>
+      <nav class="main-nav" aria-label="Main navigation" hidden>
+        <a href="#my-fridge">My Fridge</a>
+        <a href="#recipes">Recipes</a>
+        <a href="#friends">Friends<span class="notification-dot unread-dot" data-unread-summary role="img" aria-label="Unread messages" hidden></span></a>
+      </nav>
+      <details id="account-menu" class="account-menu" hidden>
+        <summary id="account-avatar" class="avatar" aria-label="Account menu"></summary>
+        <div class="account-options">
+          <a href="#profile">Edit profile</a>
+          <button type="button" id="logout">Log out</button>
+        </div>
+      </details>
+    </header>
+
     <p id="notice" role="status" aria-live="polite"></p>
+
     <section id="auth-panel">
-      <div class="intro"><p class="eyebrow">YOUR KITCHEN COMMUNITY</p><h1>A little help<br>from your friends.</h1><p>Keep your people close. Connect with friends and make everyday cooking a shared experience.</p></div>
       <div class="card">
-        <nav class="tabs" aria-label="Account access"><button type="button" id="show-login" aria-pressed="true">Log in</button><button type="button" id="show-register" aria-pressed="false">Create account</button></nav>
-        <form id="login-form"><h2>Welcome back</h2><label>Username or email<input name="identifier" autocomplete="username" maxlength="255" required /></label><label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required /></label><button type="submit">Log in</button></form>
-        <form id="register-form" hidden><h2>Join the table</h2><label>Username<input name="username" autocomplete="username" pattern="[A-Za-z0-9_]{3,50}" minlength="3" maxlength="50" title="3-50 letters, numbers or underscores" required /></label><label>Display name<input name="display_name" autocomplete="nickname" maxlength="100" required /></label><label>Email<input name="email" type="email" autocomplete="email" maxlength="255" required /></label><label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required /></label><button type="submit">Create account</button></form>
+        <nav class="tabs" aria-label="Account access">
+          <button type="button" id="show-login" aria-pressed="true">Log in</button>
+          <button type="button" id="show-register" aria-pressed="false">Create account</button>
+        </nav>
+        <form id="login-form">
+          <h1>Welcome back</h1>
+          <label>Username or email<input name="identifier" autocomplete="username" maxlength="255" required /></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required /></label>
+          <button type="submit">Log in</button>
+        </form>
+        <form id="register-form" hidden>
+          <h1>Create account</h1>
+          <label>Username<input name="username" autocomplete="username" pattern="[A-Za-z0-9_]{3,50}" minlength="3" maxlength="50" title="3-50 letters, numbers or underscores" required /></label>
+          <label>Display name<input name="display_name" autocomplete="nickname" maxlength="100" required /></label>
+          <label>Email<input name="email" type="email" autocomplete="email" maxlength="255" required /></label>
+          <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required /></label>
+          <button type="submit">Create account</button>
+        </form>
       </div>
     </section>
-    <section id="dashboard" hidden>
-      <div class="welcome"><div><p class="eyebrow">USER &amp; FRIENDS</p><h1 id="greeting">Your community</h1></div><button type="button" id="logout" class="secondary">Log out</button></div>
-      <div class="grid">
-        <section class="card"><h2>Your profile</h2><p id="username" class="muted"></p><form id="profile-form"><label>Display name<input name="display_name" maxlength="100" required /></label><label>Email<input name="email" type="email" maxlength="255" required /></label><button type="submit">Save changes</button></form></section>
-        <section class="card"><h2>Find your friends</h2><p class="muted">Search by username (at least 2 characters).</p><form id="search-form" class="search"><label class="grow">Username<input name="q" minlength="2" maxlength="50" required /></label><button type="submit">Search</button></form><ul id="search-results" aria-label="Search results"></ul><button type="button" class="secondary" id="search-more" hidden>Load more results</button></section>
-      </div>
-      <section class="card"><div class="section-heading"><h2>Your friends</h2><button type="button" id="refresh" class="secondary">Refresh</button></div><ul id="friends-list"></ul><button type="button" class="secondary" id="friends-more" hidden>Load more friends</button></section>
-      <div class="grid"><section class="card"><h2>Incoming requests</h2><ul id="incoming-list"></ul><button type="button" class="secondary" id="incoming-more" hidden>Load more requests</button></section><section class="card"><h2>Sent requests</h2><ul id="outgoing-list"></ul><button type="button" class="secondary" id="outgoing-more" hidden>Load more requests</button></section></div>
-    </section>
-    <footer>Friend's Fridge &middot; FridgeMates / CS 409</footer>
+
+    <div id="dashboard" hidden>
+      <section id="friends-page" class="page" aria-labelledby="friends-title">
+        <div class="page-heading">
+          <h1 id="friends-title" tabindex="-1">Friends</h1>
+          <div class="actions">
+            <a id="invitations-link" class="button secondary" href="#invitations">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 19v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m4-12v6m-3-3h6"/></svg>
+              Invites<span id="invite-dot" class="notification-dot" aria-label="Pending invitations" hidden></span>
+            </a>
+          </div>
+        </div>
+
+        <form id="search-form" class="search" role="search">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></svg>
+          <input name="q" type="search" aria-label="Find friends by username" maxlength="50" placeholder="Search usernames" autocomplete="off" />
+        </form>
+
+        <div id="friend-directory">
+          <template id="friend-fridge-icon">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="6" y="3" width="12" height="17" rx="2" />
+              <path d="M6 9h12M9 6v1m0 5v3M8 20v1m8-1v1" />
+            </svg>
+          </template>
+          <ul id="friends-list" aria-label="Your friends"></ul>
+          <button type="button" class="secondary more" id="friends-more" hidden>Load more</button>
+        </div>
+        <div id="search-directory" hidden>
+          <p id="search-status" class="muted" role="status"></p>
+          <ul id="search-results" aria-label="Search results"></ul>
+          <button type="button" class="secondary more" id="search-more" hidden>Load more results</button>
+        </div>
+      </section>
+
+      <section id="invitations-page" class="page" aria-labelledby="invitations-title" hidden>
+        <a class="back-link" href="#friends">← Friends</a>
+        <h1 id="invitations-title" tabindex="-1">Friend invites</h1>
+        <div class="card invitations">
+          <h2>Received</h2>
+          <ul id="incoming-list"></ul>
+          <button type="button" class="secondary more" id="incoming-more" hidden>Load more received invites</button>
+          <h2>Sent</h2>
+          <ul id="outgoing-list"></ul>
+          <button type="button" class="secondary more" id="outgoing-more" hidden>Load more sent invites</button>
+        </div>
+      </section>
+
+      <section id="conversation-page" class="page conversation-page" aria-labelledby="conversation-title" hidden>
+        <a class="back-link" href="#friends">← Friends</a>
+        <header class="conversation-header">
+          <h1 id="conversation-title" tabindex="-1">Conversation</h1>
+          <a id="conversation-fridge" class="button secondary" hidden>View fridge →</a>
+        </header>
+        <div id="conversation-history" class="conversation-history" role="region" aria-label="Message history" tabindex="0">
+          <button type="button" id="conversation-more" class="secondary" hidden>Load older messages</button>
+          <p id="conversation-status" class="muted" role="status"></p>
+          <ol id="conversation-messages" aria-label="Messages"></ol>
+        </div>
+        <form id="conversation-form" class="conversation-form" hidden>
+          <textarea name="text" aria-label="Message" placeholder="Write a message…" rows="1" maxlength="1000" required></textarea>
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <section id="fridge-page" class="page" aria-labelledby="fridge-title" hidden>
+        <div class="detail-nav">
+          <a class="back-link" href="#friends">← Back to Friends</a>
+          <button type="button" id="remove-friend" class="secondary danger" hidden>Remove friend</button>
+        </div>
+        <div class="fridge-heading">
+          <div id="fridge-avatar" class="avatar" aria-hidden="true" hidden></div>
+          <h1 id="fridge-title" tabindex="-1">Shared fridge</h1>
+        </div>
+        <p id="fridge-status" class="muted" role="status" hidden></p>
+        <ul id="ingredient-list" class="ingredient-grid" aria-label="Available ingredients"></ul>
+        <button type="button" class="secondary more" id="fridge-more" hidden>Load more ingredients</button>
+        <a id="fridge-conversation" class="back-link fridge-conversation" hidden>Open conversation →</a>
+      </section>
+
+      <section id="my-fridge-page" class="page placeholder card" aria-labelledby="my-fridge-title" hidden>
+        <h1 id="my-fridge-title" tabindex="-1">My Fridge</h1>
+        <p class="pill">Coming soon</p>
+      </section>
+
+      <section id="recipes-page" class="page placeholder card" aria-labelledby="recipes-title" hidden>
+        <h1 id="recipes-title" tabindex="-1">Recipes</h1>
+        <p class="pill">Coming soon</p>
+      </section>
+
+      <section id="profile-page" class="page narrow" aria-labelledby="profile-title" hidden>
+        <a class="back-link" href="#friends">← Back to Friends</a>
+        <div class="card">
+          <div class="profile-heading">
+            <div id="profile-avatar" class="avatar" aria-hidden="true"></div>
+            <div><h1 id="profile-title" tabindex="-1">Your profile</h1><p id="username" class="muted"></p></div>
+          </div>
+          <form id="profile-form">
+            <label>Display name<input name="display_name" autocomplete="nickname" maxlength="100" required /></label>
+            <label>Email<input name="email" type="email" autocomplete="email" maxlength="255" required /></label>
+            <button type="submit">Save changes</button>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="request-dialog" aria-labelledby="request-title">
+      <form id="request-form">
+        <h2 id="request-title">Request ingredient</h2>
+        <p id="request-stock" class="muted"></p>
+        <label>Quantity <span id="request-unit"></span><input name="quantity" type="number" min="0.01" step="0.01" inputmode="decimal" required autofocus /></label>
+        <label>Note <span class="muted">(optional)</span><textarea name="message" maxlength="500" rows="3" placeholder="Can I pick it up this evening?"></textarea></label>
+        <p id="request-error" role="alert"></p>
+        <div class="actions">
+          <button id="close-request" class="secondary" type="button">Close</button>
+          <button type="submit">Send request</button>
+        </div>
+      </form>
+    </dialog>
+
     <noscript>Please enable JavaScript to use accounts and friends.</noscript>
   </main>
 </body>

@@ -16,5 +16,8 @@ try {
 } catch (error) { await client.close(); throw error; }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.once(signal, () => { server.close(async () => { await client.close(); }); });
+  process.once(signal, () => {
+    server.closeConversationEvents();
+    server.close(async () => { await client.close(); });
+  });
 }

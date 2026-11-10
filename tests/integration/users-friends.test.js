@@ -100,6 +100,147 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     assert.equal((await alice.request(`/api/friends/requests/${relationId}`, 'PATCH', { status: 'accepted' })).status, 200);
     assert.equal(await db.collection('friendships').countDocuments(), 1);
   });
+  await t.test('sends private messages between friends and notifies the recipient immediately', async (t) => {
+    const inbox = '/api/friends/conversations';
+    const toBob = `/api/friends/${bobId}/conversation`;
+    const toAlice = `/api/friends/${aliceId}/conversation`;
+    const message = { message_id: randomUUID(), text: 'Hi Bob!' };
+    assert.equal((await guest.request(toBob)).status, 401);
+    assert.equal((await eve.request(toBob)).status, 404);
+    assert.equal((await eve.request(toBob, 'POST', message)).status, 404);
+    assert.equal((await alice.request(toBob, 'POST', { ...message, sender_id: bobId })).status, 400);
+    assert.equal((await alice.request(toBob, 'POST', { ...message, text: ' ' })).status, 400);
+    assert.deepEqual((await alice.request(toBob)).body.data.items, []);
+    const eventPath = base + '/api/friends/conversations/events';
+    assert.equal((await fetch(eventPath)).status, 401);
+    const stream = await fetch(eventPath, { headers: { Cookie: bob.cookie }, signal: AbortSignal.timeout(5000) });
+    assert.match(stream.headers.get('content-type'), /text\/event-stream/);
+    const reader = stream.body.getReader();
+    t.after(() => reader.cancel().catch(() => {}));
+    const decoder = new TextDecoder();
+    assert.match(decoder.decode((await reader.read()).value), /: connected/);
+    assert.equal((await alice.request(toBob, 'POST', message)).status, 201);
+    assert.match(decoder.decode((await reader.read()).value), /data: \{\}/);
+    assert.equal((await alice.request(toBob, 'POST', message)).status, 201);
+    assert.equal((await alice.request(toBob, 'POST', { ...message, text: 'Different draft' })).status, 409);
+    const received = (await bob.request(toAlice)).body.data;
+    assert.equal(received.peer.email, undefined);
+    assert.equal(received.items.length, 1);
+    assert.equal(received.items[0].sender_id, aliceId);
+    assert.equal(received.items[0].text, 'Hi Bob!');
+    assert.equal(received.items[0].kind, 'message');
+    assert.equal((await bob.request(toAlice, 'POST', { message_id: randomUUID(), text: 'Hi Alice!' })).status, 201);
+    const threads = (await alice.request(inbox)).body.data;
+    assert.equal(threads.length, 1);
+    assert.equal(threads[0].peer._id, bobId);
+    assert.equal(threads[0].latest.text, 'Hi Alice!');
+    assert.deepEqual((await eve.request(inbox)).body.data, []);
+    await db.collection('friend_messages').insertMany(Array.from({ length: 21 }, (_, i) => ({
+      _id: randomUUID(), sender_id: bobId, recipient_id: aliceId, text: 'Earlier message ' + i, created_at: new Date(1000 + i),
+    })));
+    const first = (await alice.request(toBob)).body.data;
+    const older = (await alice.request(toBob + '?before=' + encodeURIComponent(first.next_before))).body.data;
+    assert.equal(first.items.length, 20);
+    assert.equal(older.items.length, 3);
+    assert.equal(older.next_before, null);
+    assert.equal(new Set([...first.items, ...older.items].map((item) => item._id)).size, 23);
+  });
+  await t.test('tracks unread conversations separately and preserves arrivals after a read snapshot', async () => {
+    const unread = '/api/friends/conversations/unread';
+    const toBob = `/api/friends/${bobId}/conversation`;
+    const toAlice = `/api/friends/${aliceId}/conversation`;
+    const eveId = (await eve.request('/api/users/me')).body.data._id;
+    const invite = (await alice.request('/api/friends/requests', 'POST', { user_id: eveId })).body.data;
+    assert.equal((await eve.request(`/api/friends/requests/${invite._id}`, 'PATCH', { status: 'accepted' })).status, 200);
+    assert.equal((await eve.request(toAlice, 'POST', { message_id: randomUUID(), text: 'Hello from Eve' })).status, 201);
+    assert.deepEqual(new Set((await alice.request(unread)).body.data), new Set([bobId, eveId]));
+    assert.deepEqual((await eve.request(unread)).body.data, []);
+    assert.equal((await guest.request(unread)).status, 401);
+    const friend = (await alice.request('/api/friends')).body.data.find((row) => row.user._id === bobId);
+    assert.ok(Object.keys(friend).every((key) => !key.endsWith('_received') && !key.endsWith('_read')));
+
+    const oldSnapshot = (await bob.request(toAlice)).body.data;
+    assert.equal(oldSnapshot.received, 1);
+    assert.equal((await alice.request(toBob, 'POST', { message_id: randomUUID(), text: 'One more thing' })).status, 201);
+    assert.equal((await bob.request(toAlice + '/read', 'POST', { through: oldSnapshot.received })).status, 200);
+    assert.deepEqual((await bob.request(unread)).body.data, [aliceId]);
+    const newest = (await bob.request(toAlice)).body.data;
+    assert.equal(newest.received, 2);
+    assert.equal((await bob.request(toAlice + '/read', 'POST', { through: newest.received + 1 })).status, 404);
+    assert.equal((await bob.request(toAlice + '/read', 'POST', { through: newest.received })).status, 200);
+    assert.equal((await bob.request(toAlice + '/read', 'POST', { through: oldSnapshot.received })).status, 200);
+    assert.deepEqual((await bob.request(unread)).body.data, []);
+
+    const eveThread = `/api/friends/${eveId}/conversation`;
+    const eveSnapshot = (await alice.request(eveThread)).body.data;
+    assert.equal((await alice.request(eveThread + '/read', 'POST', { through: eveSnapshot.received })).status, 200);
+    const directory = (await alice.request('/api/friends/directory?count=1')).body.data;
+    assert.deepEqual(directory.map((row) => [row._id, row.unread]), [[bobId, true], [eveId, false]]);
+    const bobSnapshot = (await alice.request(toBob)).body.data;
+    assert.equal((await alice.request(toBob + '/read', 'POST', { through: bobSnapshot.received })).status, 200);
+    assert.deepEqual((await alice.request(unread)).body.data, []);
+    assert.equal((await eve.request(toAlice, 'POST', { message_id: randomUUID(), text: 'Another message from Eve' })).status, 201);
+    assert.deepEqual((await alice.request(unread)).body.data, [eveId]);
+  });
+  await t.test('shares only friend-visible stock and handles requests through handoff', async () => {
+    const created_at = new Date();
+    const [egg, milk] = [randomUUID(), randomUUID()];
+    await db.collection('ingredients').insertMany([
+      { _id: egg, name: 'egg', category: 'protein', default_unit: 'piece', fresh_interval: null, created_at },
+      { _id: milk, name: 'milk', category: 'dairy', default_unit: 'ml', fresh_interval: null, created_at },
+    ]);
+    await db.collection('inventory_items').insertMany([
+      { _id: randomUUID(), user_id: bobId, ingredient_id: egg, quantity: 300, visibility: 'friends', created_at, updated_at: created_at },
+      { _id: randomUUID(), user_id: bobId, ingredient_id: milk, quantity: 20000, visibility: 'private', created_at, updated_at: created_at },
+    ]);
+    const fridge = `/api/friends/${bobId}/fridge`;
+    const path = '/api/friends/ingredient-requests';
+    assert.equal((await guest.request(fridge)).status, 401);
+    assert.equal((await eve.request(fridge)).status, 404);
+    const shared = await alice.request(fridge);
+    assert.equal(shared.status, 200);
+    assert.equal(shared.body.data.friend.email, undefined);
+    assert.deepEqual(shared.body.data.items.map((item) => item.ingredient._id), [egg]);
+    const request = { owner_id: bobId, ingredient_id: egg, quantity: 125, message: 'Pick up tonight?' };
+    assert.equal((await eve.request(path, 'POST', request)).status, 404);
+    assert.equal((await alice.request(path, 'POST', { ...request, ingredient_id: milk })).status, 409);
+    assert.equal((await alice.request(path, 'POST', { ...request, quantity: 301 })).status, 409);
+    assert.equal((await alice.request(path, 'POST', request, { Origin: 'https://evil.example' })).status, 403);
+    const sent = await alice.request(path, 'POST', request);
+    assert.equal(sent.status, 201);
+    const unread = '/api/friends/conversations/unread';
+    const toAlice = `/api/friends/${aliceId}/conversation`;
+    assert.deepEqual((await bob.request(unread)).body.data, [aliceId]);
+    const received = (await bob.request(toAlice)).body.data;
+    assert.equal((await bob.request(toAlice + '/read', 'POST', { through: received.received })).status, 200);
+    assert.deepEqual((await bob.request(unread)).body.data, []);
+    const threadPath = `/api/friends/${bobId}/conversation`;
+    const thread = (await alice.request(threadPath)).body.data;
+    const requestEntry = thread.items.find((item) => item._id === sent.body.data._id);
+    assert.equal(requestEntry.kind, 'request');
+    assert.equal(requestEntry.ingredient.name, 'egg');
+    assert.ok(thread.items.some((item) => item.kind === 'message'));
+    const detail = `${path}/${sent.body.data._id}`;
+    const incoming = (await bob.request(path)).body.data[0];
+    assert.equal(incoming.person._id, aliceId);
+    assert.equal(incoming.ingredient.name, 'egg');
+    assert.equal(incoming.message, request.message);
+    assert.deepEqual((await eve.request(path)).body.data, []);
+    assert.equal((await eve.request(detail, 'PATCH', { status: 'cancelled' })).status, 404);
+    assert.equal((await alice.request(detail, 'PATCH', { status: 'accepted' })).status, 409);
+    assert.equal((await bob.request(detail, 'PATCH', { status: 'accepted' })).status, 200);
+    assert.deepEqual((await alice.request(unread)).body.data, [(await eve.request('/api/users/me')).body.data._id]);
+    assert.equal((await alice.request(fridge)).body.data.items[0].quantity, 300);
+    assert.equal((await bob.request(detail, 'PATCH', { status: 'completed' })).status, 200);
+    assert.equal((await bob.request(detail, 'PATCH', { status: 'completed' })).status, 409);
+    assert.equal((await alice.request(fridge)).body.data.items[0].quantity, 175);
+    assert.equal((await alice.request(path)).body.data[0].status, 'completed');
+    await db.collection('friendships').updateOne({ _id: relationId }, { $set: { status: 'removed' } });
+    assert.equal((await alice.request(fridge)).status, 404);
+    assert.equal((await alice.request(path)).body.data[0].status, 'completed');
+    assert.equal((await alice.request(threadPath)).body.data.can_message, false);
+    assert.equal((await alice.request(threadPath, 'POST', { message_id: randomUUID(), text: 'Hello again' })).status, 404);
+  });
   await t.test('logout revokes tokens, login rotates sessions and expired tokens fail', async () => {
     const oldCookie = alice.cookie;
     assert.equal((await alice.request('/api/auth/logout', 'POST')).status, 200);
