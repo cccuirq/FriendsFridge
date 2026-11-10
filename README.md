@@ -4,64 +4,43 @@ A CS 409 final project about keeping track of groceries and sharing ingredients 
 
 ## Project idea
 
-Friend’s Fridge helps users remember what food they have and figure out what to make. Instead of entering every item manually, users will be able to upload photos of their fridge, groceries, or shopping receipts. The app will suggest ingredients, which users can review and correct before saving to their inventory.
-
-Planned features:
-
-- Personal accounts and ingredient inventories, with photo-based ingredient recognition.
-- Food and drink recipes that users can browse, save, and share with friends.
-- Friend requests and the ability to view friends’ shared ingredients.
-- A private or friends-visible setting for each ingredient.
-- Requests for small amounts of missing ingredients, which the owner can accept or decline.
-
-For example, if you are making pancakes and need an egg, you could check whether a nearby friend has one to share. The goal is to make everyday cooking easier and more social while giving users control over what others can see.
+Friend’s Fridge helps users keep track of groceries, decide what to cook, and ask friends for ingredients they’re missing. If you need an egg for pancakes, you can check a friend’s shared fridge and send a request from the app.
 
 ## Proposal
 
-[proposal](https://docs.google.com/document/d/1UlzD680KIkKY2jyNW98FWANaL8JMyS2eL-Badco_-6Q/edit?tab=t.0)
+[Project proposal](https://docs.google.com/document/d/1UlzD680KIkKY2jyNW98FWANaL8JMyS2eL-Badco_-6Q/edit?tab=t.0)
 
 ## Current status
 
-The User & Friends module is implemented with a responsive frontend and MongoDB-backed APIs: registration/login/logout, profile editing, user search, friend requests, acceptance/decline, friend lists, and removal. See [User & Friends API](docs/api/user-friends.md). Inventory, recognition, recipe discovery, and sharing interfaces are still under development.
+- **Accounts.** Create an account, sign in or out, and edit your profile from the avatar menu.
+- **Friends.** Search by username and manage friend invitations. Select a friend’s name to open the conversation, or use the fridge icon to see the ingredients they’ve shared.
+- **Messages.** The Friends list shows the latest message and puts unread conversations first. New messages and ingredient requests appear automatically. Red dots on the Friends tab and individual rows show what’s unread.
+- **Ingredient requests.** Choose an ingredient and quantity from a friend’s shared fridge. The request appears in your conversation, where your friend can accept or decline it and record the handoff. Inventory is deducted when the handoff is marked complete.
+
+After sign-in, the app opens **My Fridge**. My Fridge and Recipes currently display “Coming soon.” Personal inventory editing, photo recognition, and recipe discovery and sharing are planned.
 
 ## Run locally
 
-Requires Node.js 22 or newer and MongoDB (a replica set or Atlas for transactions). See [database setup](docs/database/README.md).
+Requires Node.js 22 or newer. From the project directory, install dependencies and start the local MongoDB replica set. This also initializes the database and seeds the ingredient list.
 
 ```sh
-npm install
-# Copy .env.example to .env and configure the database connection.
-npm run db:init
-npm run db:seed
+npm ci
+npm run db:local
 ```
 
-```sh
-npm start
-```
+Leave MongoDB running and run `npm start` in a second terminal. Open [Friend’s Fridge](http://127.0.0.1:3000) in your browser. Use `npm run dev` to restart the server automatically when code changes.
 
-Open http://127.0.0.1:3000 in your browser. For automatic server restarts during development, use `npm run dev`.
-
-To use another port: `PORT=3001 npm start`.
+To use Docker, Atlas, or an existing replica set, follow the [database setup guide](docs/database/README.md). Run `npm test` to verify the app and database against a separate test replica set.
 
 ## Structure
 
-- `server.js`: Node.js HTTP server, static frontend files, and JSON API.
-- `public/index.html`: page markup.
-- `public/app.js`: frontend API request and loading/error states.
-- `public/styles.css`: responsive page styling.
+- `server.js` and `src/app.js` start the Node.js server and serve the frontend and API.
+- `public/` contains the browser interface, navigation, and live message updates.
+- `src/modules/` contains the account, friendship, conversation, and ingredient-request logic.
+- `src/db/` and `database/` contain the MongoDB schema, local setup, and ingredient seeds.
 
-The planned feature directories and MongoDB database layout are documented in [docs/structure.md](docs/structure.md). MongoDB validators, indexes, ingredient seeds, and transaction repositories are implemented.
+See the [project structure](docs/structure.md) for more detail.
 
 ## API
 
-See [User & Friends API](docs/api/user-friends.md) for implemented account and friendship endpoints. `GET /api/health` checks MongoDB.
-
-The original `GET /api/hello` endpoint remains available:
-
-```json
-{ "message": "Hello World" }
-```
-
-## Next steps
-
-Implement the remaining inventory, photo recognition, recipe discovery, and ingredient-sharing feature APIs and pages. We will also conduct a heuristic evaluation and complete at least one design revision.
+`GET /api/health` checks the MongoDB connection. See the [User & Friends API reference](docs/api/user-friends.md) for account and friendship endpoints.
