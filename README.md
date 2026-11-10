@@ -17,11 +17,13 @@ Friend’s Fridge helps users keep track of groceries, decide what to cook, and 
 - **Messages.** The Friends list shows the latest message and puts unread conversations first. New messages and ingredient requests appear automatically. Red dots on the Friends tab and individual rows show what’s unread.
 - **Ingredient requests.** Choose an ingredient and quantity from a friend’s shared fridge. The request appears in your conversation, where your friend can accept or decline it and record the handoff. Inventory is deducted when the handoff is marked complete.
 
-After sign-in, the app opens **My Fridge**. My Fridge and Recipes currently display “Coming soon.” Personal inventory editing, photo recognition, and recipe discovery and sharing are planned.
+- **Recipes.** Browse recommendations based on your current inventory, see exactly what is missing, save recipes, and create private recipes to share with accepted friends.
+
+After sign-in, the app opens **My Fridge**. Personal inventory editing and photo recognition are planned.
 
 ## Run locally
 
-Requires Node.js 22 or newer. From the project directory, install dependencies and start the local MongoDB replica set. This also initializes the database and seeds the ingredient list.
+Requires Node.js 22 or newer. From the project directory, install dependencies and start the local MongoDB replica set. This also initializes the database and seeds ingredients and sample recipes.
 
 ```sh
 npm ci

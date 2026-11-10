@@ -2,6 +2,7 @@ import { authService, ownUser } from './service.js';
 import { friendshipService } from '../friendships/service.js';
 import { ingredientRequestRepository } from '../ingredient-requests/repository.js';
 import { conversationRepository } from '../conversations/repository.js';
+import { recipeRoutes } from '../recipes/routes.js';
 import { HttpError, json, readJson, uuid, fields, string } from '../../utils/http.js';
 
 export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV === 'production', authLimit = 30, events } = {}) {
@@ -9,6 +10,7 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
   const friends = friendshipService(db);
   const ingredients = ingredientRequestRepository(client, db);
   const conversations = conversationRepository(client, db);
+  const recipes = recipeRoutes(client, db);
   const attempts = new Map();
   const cookie = (request) => request.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith('ff_session='))?.slice(11);
   const setCookie = (response, token) => response.setHeader('Set-Cookie', `ff_session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? 604800 : 0}${secureCookies ? '; Secure' : ''}`);
@@ -19,7 +21,7 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
   };
   return async (request, response, url) => {
     const path = url.pathname;
-    if (!/^\/api\/(auth(?:\/|$)|users(?:\/|$)|friends(?:\/|$))/.test(path)) return false;
+    if (!/^\/api\/(auth|users|friends|recipes)(?:\/|$)/.test(path)) return false;
     if (!['GET', 'HEAD'].includes(request.method)) {
       const expected = `${secureCookies ? 'https' : 'http'}://${request.headers.host}`;
       if ((request.headers.origin && request.headers.origin !== expected) || request.headers['sec-fetch-site'] === 'cross-site') throw new HttpError(403, 'CROSS_ORIGIN', 'Cross-origin requests are not allowed.');
@@ -43,6 +45,10 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
       setCookie(response, ''); json(response, 200, { data: { logged_out: true } }); return true;
     }
     const user = await auth.authenticate(cookie(request));
+    if (path === '/api/recipes' || path.startsWith('/api/recipes/')) {
+      await recipes(request, response, path, user._id);
+      return true;
+    }
     const key = `${request.method} ${path}`;
     let data;
     if (key === 'GET /api/users/me') data = ownUser(user);

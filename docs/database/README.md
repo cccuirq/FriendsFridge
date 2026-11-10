@@ -12,6 +12,7 @@ Copy-Item .env.example .env
 docker compose up -d --wait
 npm run db:init
 npm run db:seed
+npm run db:seed:recipes
 npm start
 ```
 
@@ -21,7 +22,7 @@ If Docker is unavailable, run `npm run db:local` in a separate terminal instead 
 
 `db:init` creates collections, strict validators, and indexes. It can be rerun without dropping data; existing collections receive updated validators. It backfills missing ingredient `fresh_interval` fields with `null`, preserving existing values. It does not repair other invalid documents or resolve duplicate data. `db:seed` inserts 20 standard ingredients without changing existing ingredient IDs, names, or units.
 
-The server requires a working database connection and applies collection validators/indexes at startup. `GET /api/health` pings MongoDB and returns 200 or 503. Account and friendship endpoints are implemented; see [User & Friends API](../api/user-friends.md). Other repository methods must receive user IDs from trusted authentication context when wired to routes.
+The server requires a working database connection and applies collection validators/indexes at startup. `GET /api/health` pings MongoDB and returns 200 or 503. The local helper also seeds two public sample recipes. For an existing database, run `npm run db:seed:recipes` after seeding ingredients.
 
 ## Data conventions
 
@@ -42,7 +43,7 @@ The server requires a working database connection and applies collection validat
 
 `recipeRepository(client, db).deleteOwned(actorId, recipeId)` deletes an author's recipe and its ingredient rows, saves, and shares within one transaction.
 
-MongoDB does **not** enforce foreign keys or automatic deletion cascades. Other application write paths must check referenced records and privacy rules. Authentication, password hashing, and friend request/removal endpoints are implemented. Recipe access/sharing and the remaining feature CRUD APIs are still pending. Raw collection access is not an authorization boundary. Recognition results remain drafts until confirmation; no upload collection is required yet.
+MongoDB does **not** enforce foreign keys or automatic deletion cascades. Recipe reads and writes use the authenticated session. New recipes are private by default and can be shared with accepted friends. A saved recipe or old share does not grant access after the friendship is removed. Raw collection access is not an authorization boundary. Recognition results remain drafts until confirmation; no upload collection is required yet.
 
 ## Verification
 

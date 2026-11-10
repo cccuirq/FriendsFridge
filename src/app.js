@@ -8,6 +8,7 @@ const files = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
+  '/js/pages/recipes/recipes.js': ['js/pages/recipes/recipes.js', 'text/javascript; charset=utf-8'],
 };
 
 export function createApp(client, db, options) {
@@ -21,6 +22,11 @@ export function createApp(client, db, options) {
       const url = new URL(request.url, 'http://localhost');
       if (await users(request, response, url)) return;
       if (request.method !== 'GET') throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
+      if (url.pathname === '/recipes') {
+        response.writeHead(302, { Location: '/#recipes' });
+        response.end();
+        return;
+      }
       if (url.pathname === '/api/hello') return json(response, 200, { message: 'Hello World' });
       if (url.pathname === '/api/health') {
         try { await db.command({ ping: 1 }); json(response, 200, { status: 'ok', database: 'mongodb' }); }

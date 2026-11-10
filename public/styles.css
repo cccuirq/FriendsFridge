@@ -162,6 +162,35 @@ button:disabled { opacity: .6; cursor: wait; }
 .tabs { display: flex; gap: 9px; margin-bottom: 22px; }
 .tabs button { flex: 1; background: var(--paper); box-shadow: none; }
 .tabs button[aria-pressed="true"] { background: var(--lavender); box-shadow: 2px 2px 0 var(--ink); }
+.recipe-filters { flex-wrap: wrap; }
+.recipe-filters button { flex: 0 0 auto; }
+.recipe-grid, .recipe-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.recipe-card h2 { margin: 10px 0 5px; }
+.recipe-card { overflow-wrap: anywhere; }
+.recipe-badge { background: var(--peach); }
+.recipe-badge.ready { background: var(--mint); }
+.recipe-panel { margin-top: 14px; }
+.recipe-toolbar { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.recipe-toolbar h2, .recipe-toolbar label { margin: 0; }
+.recipe-detail-grid h3 { margin: 8px 0; }
+.recipe-detail-grid ol { padding-left: 24px; }
+.recipe-detail-grid ol li { display: list-item; border: 0; padding: 5px 0; }
+.recipe-detail-grid ul small { display: block; }
+.recipe-detail-grid ul li { align-items: start; }
+.recipe-detail-grid ul li .recipe-badge { white-space: nowrap; }
+#recipe-share { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+#recipe-form fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 8px; margin: 0 0 16px; }
+#recipes-page select { display: block; width: 100%; min-width: 0; margin-top: 6px; padding: 8px; border: 1px solid #8b7c6e; border-radius: 8px; color: inherit; background: #fff; font: inherit; }
+.recipe-item-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto auto; gap: 8px; align-items: end; margin: 8px 0; }
+.recipe-item-row label { margin: 0; min-width: 0; }
+.recipe-item-row span { padding-bottom: 7px; }
+#recipe-action-status:not(:empty), #recipe-form-status:not(:empty) { margin: 12px 0 0; }
+#recipe-action-status:empty, #recipe-form-status:empty { display: none; }
+@media (max-width: 540px) {
+  .recipe-grid, .recipe-detail-grid { grid-template-columns: 1fr; }
+  .recipe-item-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .recipe-item-row button { justify-self: end; }
+}
 .notification-dot { width: 9px; height: 9px; flex: none; border: 1px solid var(--ink); border-radius: 50%; background: #ff937b; }
 .unread-dot { display: inline-block; background: #e44242; }
 .main-nav .unread-dot { position: absolute; top: 5px; right: 3px; }

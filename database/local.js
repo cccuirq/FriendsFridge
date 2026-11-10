@@ -5,6 +5,7 @@ import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { MongoClient } from 'mongodb';
 import { initializeDatabase } from '../src/db/schema.js';
 import { seedIngredients } from './seeds/ingredients.js';
+import { seedRecipes } from './seeds/recipes.js';
 
 const dbPath = resolve('.local/mongodb');
 await mkdir(dbPath, { recursive: true });
@@ -19,8 +20,9 @@ try {
   const db = client.db('friends_fridge');
   await initializeDatabase(db);
   await seedIngredients(db);
+  await seedRecipes(client, db);
   console.log('Local MongoDB ready on 127.0.0.1:27017; database: friends_fridge.');
-  console.log('Collections initialized, 20 ingredients seeded. Data: .local/mongodb. Ctrl+C to stop.');
+  console.log('Collections, ingredients, and sample recipes are ready. Data: .local/mongodb. Ctrl+C to stop.');
 } catch (error) {
   await replica.stop({ doCleanup: false });
   throw error;

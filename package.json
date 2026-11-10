@@ -8,6 +8,7 @@
     "dev": "node --watch server.js",
     "db:init": "node database/migrations/001-initialize.js",
     "db:seed": "node database/seeds/ingredients.js",
+    "db:seed:recipes": "node database/seeds/recipes.js",
     "test": "node --test",
     "db:local": "node database/local.js"
   },

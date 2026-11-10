@@ -142,9 +142,83 @@
         <p class="pill">Coming soon</p>
       </section>
 
-      <section id="recipes-page" class="page placeholder card" aria-labelledby="recipes-title" hidden>
-        <h1 id="recipes-title" tabindex="-1">Recipes</h1>
-        <p class="pill">Coming soon</p>
+      <section id="recipes-page" class="page" aria-labelledby="recipes-title" hidden>
+        <div class="page-heading">
+          <h1 id="recipes-title" tabindex="-1">Recipes</h1>
+          <button id="recipe-new" type="button" disabled>+ New recipe</button>
+        </div>
+        <div id="recipe-browse">
+          <p class="muted">Find recipes based on what you have in your fridge.</p>
+          <div class="tabs recipe-filters" role="group" aria-label="Filter recipes">
+            <button type="button" data-recipe-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-recipe-filter="ready" aria-pressed="false">Ready to make</button>
+            <button type="button" data-recipe-filter="saved" aria-pressed="false">Saved</button>
+            <button type="button" data-recipe-filter="owned" aria-pressed="false">My recipes</button>
+            <button type="button" data-recipe-filter="shared" aria-pressed="false">Shared with me</button>
+          </div>
+          <p id="recipe-status" class="muted" role="status"></p>
+          <button id="recipe-retry" type="button" class="secondary" hidden>Try again</button>
+          <div id="recipe-results" class="recipe-grid"></div>
+        </div>
+        <section id="recipe-detail" aria-labelledby="recipe-detail-title" hidden>
+          <button type="button" class="secondary" data-recipe-back>← Back to recipes</button>
+          <div class="card recipe-panel">
+            <div class="recipe-toolbar">
+              <h2 id="recipe-detail-title" tabindex="-1"></h2>
+              <button type="button" id="recipe-save" aria-pressed="false">Save recipe</button>
+            </div>
+            <p id="recipe-detail-meta" class="muted"></p>
+            <p id="recipe-description"></p>
+            <div class="recipe-detail-grid">
+              <section aria-labelledby="recipe-ingredients-title">
+                <h3 id="recipe-ingredients-title">Ingredients</h3>
+                <ul id="recipe-ingredients"></ul>
+              </section>
+              <section aria-labelledby="recipe-directions-title">
+                <h3 id="recipe-directions-title">Directions</h3>
+                <ol id="recipe-directions"></ol>
+              </section>
+            </div>
+            <form id="recipe-share" class="recipe-toolbar" hidden>
+              <label>Share with a friend <select name="recipient" aria-label="Share with a friend" required></select></label>
+              <button type="submit" class="secondary">Share recipe</button>
+            </form>
+            <p id="recipe-action-status" class="muted" role="status"></p>
+          </div>
+        </section>
+        <section id="recipe-create" aria-labelledby="recipe-create-title" hidden>
+          <button type="button" class="secondary" data-recipe-back>← Back to recipes</button>
+          <form id="recipe-form" class="card recipe-panel">
+            <h2 id="recipe-create-title" tabindex="-1">New recipe</h2>
+            <label>Recipe name<input name="title" maxlength="200" required /></label>
+            <label>Description (optional)<input name="description" maxlength="500" /></label>
+            <label>Servings<input name="servings" type="number" min="1" max="10000" value="2" required /></label>
+            <fieldset>
+              <legend>Ingredients and quantities</legend>
+              <div id="recipe-input-items"></div>
+              <button id="recipe-add-item" type="button" class="secondary">+ Add ingredient</button>
+            </fieldset>
+            <label>Directions (one step per line)<textarea name="instructions" rows="4" maxlength="4000" required></textarea></label>
+            <button type="submit">Create recipe</button>
+            <p id="recipe-form-status" class="muted" role="status"></p>
+          </form>
+        </section>
+        <template id="recipe-card">
+          <article class="card recipe-card">
+            <span class="pill recipe-badge"></span>
+            <h2></h2>
+            <p class="muted"></p>
+            <button type="button" class="secondary">View recipe →</button>
+          </article>
+        </template>
+        <template id="recipe-item-row">
+          <div class="recipe-item-row">
+            <label>Ingredient<select name="ingredient" aria-label="Ingredient" required></select></label>
+            <label>Quantity<input name="quantity" type="number" min="0.01" step="0.01" required /></label>
+            <span data-recipe-unit aria-live="polite" class="muted"></span>
+            <button type="button" class="secondary" aria-label="Remove ingredient">Remove</button>
+          </div>
+        </template>
       </section>
 
       <section id="profile-page" class="page narrow" aria-labelledby="profile-title" hidden>

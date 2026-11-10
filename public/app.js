@@ -1,4 +1,7 @@
+import { createRecipesPage } from './js/pages/recipes/recipes.js';
+
 const $ = (selector) => document.querySelector(selector);
+const recipesPage = createRecipesPage($('#recipes-page'), { api, measure });
 const requestPath = '/api/friends/ingredient-requests';
 const listPaths = {
   incoming: '/api/friends/requests?direction=incoming',
@@ -65,6 +68,7 @@ function displayProfile(user) {
 
 function showAccount(user) {
   generation++;
+  recipesPage.reset();
   currentUser = user;
   offsets = {};
   clearTimeout(searchTimer);
@@ -510,6 +514,8 @@ function renderRoute(focus = false) {
   const activeTab = ['fridge', 'invitations', 'conversation'].includes(page) ? 'friends' : page;
   conversation = null;
   for (const panel of document.querySelectorAll('.page')) panel.hidden = panel.id !== page + '-page';
+  if (page === 'recipes') recipesPage.open();
+  else recipesPage.reset();
   for (const tab of document.querySelectorAll('.main-nav a')) {
     if (tab.hash === '#' + activeTab) tab.setAttribute('aria-current', 'page');
     else tab.removeAttribute('aria-current');

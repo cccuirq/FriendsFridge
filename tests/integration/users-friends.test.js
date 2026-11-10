@@ -241,6 +241,40 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     assert.equal((await alice.request(threadPath)).body.data.can_message, false);
     assert.equal((await alice.request(threadPath, 'POST', { message_id: randomUUID(), text: 'Hello again' })).status, 404);
   });
+  await t.test('uses the signed-in fridge and protects private recipe shares', async () => {
+    const endpoint = '/api/recipes';
+    const egg = await db.collection('ingredients').findOne({ name: 'egg' });
+    const draft = { title: 'Egg toast', instructions: 'Cook the eggs.', servings: 1, items: [{ ingredient_id: egg._id, quantity: 200 }] };
+    assert.equal((await guest.request(endpoint)).status, 401);
+    assert.equal((await bob.request(endpoint, 'POST', { ...draft, items: [draft.items[0], draft.items[0]] })).status, 400);
+    assert.equal((await bob.request(endpoint, 'POST', { ...draft, author_id: aliceId })).status, 400);
+    assert.equal((await bob.request(endpoint, 'POST', draft, { Origin: 'https://evil.example' })).status, 403);
+    const created = await bob.request(endpoint, 'POST', draft);
+    assert.equal(created.status, 201);
+    const id = created.body.data._id;
+    const getRecipe = async (person) => (await person.request(endpoint)).body.data.recipes.find((recipe) => recipe._id === id);
+    const mine = await getRecipe(bob);
+    assert.equal(mine.owned, true);
+    assert.deepEqual(mine.items.map(({ required, available, missing }) => [required, available, missing]), [[200, 175, 25]]);
+    assert.equal(await getRecipe(alice), undefined);
+    assert.equal((await alice.request(`${endpoint}/${id}/saved`, 'PUT')).status, 404);
+    assert.equal((await bob.request(`${endpoint}/${id}/shares`, 'POST', { recipient_id: aliceId })).status, 404);
+    await alice.request('/api/friends/requests', 'POST', { user_id: bobId });
+    assert.equal((await bob.request(`/api/friends/requests/${relationId}`, 'PATCH', { status: 'accepted' })).status, 200);
+    for (let repeat = 0; repeat < 2; repeat++) {
+      assert.equal((await bob.request(`${endpoint}/${id}/shares`, 'POST', { recipient_id: aliceId })).status, 200);
+      assert.equal((await alice.request(`${endpoint}/${id}/saved`, 'PUT')).status, 200);
+    }
+    const received = await getRecipe(alice);
+    assert.equal(received.shared, true);
+    assert.equal(received.saved, true);
+    assert.equal(received.items[0].missing, 200);
+    assert.equal(await getRecipe(eve), undefined);
+    assert.equal(await db.collection('recipe_shares').countDocuments({ recipe_id: id }), 1);
+    assert.equal(await db.collection('saved_recipes').countDocuments({ recipe_id: id }), 1);
+    assert.equal((await alice.request(`/api/friends/${bobId}`, 'DELETE')).status, 200);
+    assert.equal(await getRecipe(alice), undefined);
+  });
   await t.test('logout revokes tokens, login rotates sessions and expired tokens fail', async () => {
     const oldCookie = alice.cookie;
     assert.equal((await alice.request('/api/auth/logout', 'POST')).status, 200);
