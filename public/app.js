@@ -25,6 +25,7 @@ let conversation;
 let directorySignature;
 let directoryCount = 20;
 let directoryRevision = 0;
+let directoryTimer;
 let activityStream;
 let unreadPeers = new Set();
 let unreadRevision = 0;
@@ -79,6 +80,8 @@ function showAccount(user) {
   conversation = null;
   directorySignature = null;
   directoryCount = 20;
+  clearTimeout(directoryTimer);
+  $('#friend-filter-form').reset();
   activityStream?.close();
   activityStream = null;
   unreadPeers = new Set();
@@ -101,7 +104,6 @@ function showAccount(user) {
   $('#search-results').replaceChildren();
   $('#search-form').reset();
   $('#search-directory').hidden = true;
-  $('#friend-directory').hidden = false;
   $('#invite-dot').hidden = true;
   $('#invitations-link').removeAttribute('aria-label');
   $('#profile-form').reset();
@@ -392,15 +394,17 @@ async function loadDirectory() {
   const version = generation;
   const revision = ++directoryRevision;
   const count = directoryCount;
-  const rows = await api('/api/friends/directory?count=' + count);
+  const query = $('#friend-filter').value.trim();
+  const params = new URLSearchParams({ count, q: query });
+  const rows = await api('/api/friends/directory?' + params);
   if (version !== generation || revision !== directoryRevision) return;
-  const signature = JSON.stringify(rows);
+  $('#friends-more').hidden = rows.length <= count;
+  const signature = JSON.stringify([query, count, rows]);
   if (signature === directorySignature) return;
   directorySignature = signature;
   const target = $('#friends-list');
   target.replaceChildren(...rows.slice(0, count).map(directoryEntry));
-  emptyList(target, 'No friends yet. Search for a username to add someone.');
-  $('#friends-more').hidden = rows.length <= count;
+  emptyList(target, query ? 'No matching friends.' : 'No friends yet. Open Invites to add someone.');
 }
 
 function invitationEntry(row, type) {
@@ -710,6 +714,20 @@ $('#logout').addEventListener('click', (event) => run(event.currentTarget, async
   history.replaceState(null, '', location.pathname + location.search);
   notice('You have logged out.');
 }));
+
+function queueFriendFilter(delay) {
+  clearTimeout(directoryTimer);
+  directoryRevision++;
+  directoryCount = 20;
+  $('#friends-more').hidden = true;
+  directoryTimer = setTimeout(() => loadDirectory().catch((error) => notice(error.message, true)), delay);
+}
+$('#friend-filter').addEventListener('input', () => queueFriendFilter(250));
+$('#friend-filter-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  queueFriendFilter(0);
+});
+
 async function search(append = false) {
   const version = generation;
   const revision = searchVersion;
@@ -717,7 +735,7 @@ async function search(append = false) {
   const query = searchQuery;
   let rows;
   try {
-    rows = await api('/api/users?q=' + encodeURIComponent(query) + '&offset=' + offset);
+    rows = await api('/api/users?q=' + encodeURIComponent(query) + '&offset=' + offset + '&invitable=1');
   } catch (error) {
     if (version === generation && revision === searchVersion) $('#search-status').textContent = error.message;
     return;
@@ -731,20 +749,25 @@ async function search(append = false) {
     const add = action('+', async () => {
       await api('/api/friends/requests', 'POST', { user_id: user._id });
       add.replaceWith(pill('Invited', 'pending'));
-      await loadList('outgoing');
+      let updatedSearch;
+      if (version === generation && query === searchQuery) {
+        clearTimeout(searchTimer);
+        searchVersion++;
+        updatedSearch = search();
+      }
+      await Promise.all([loadList('outgoing'), updatedSearch]);
       notice('Invitation sent to ' + user.display_name + '.');
     }, 'add-friend');
     add.setAttribute('aria-label', 'Add ' + user.display_name);
     target.append(entry(user, [add]));
   }
-  emptyList(target, 'No matching users.');
+  emptyList(target, 'No matching people to invite.');
   $('#search-more').hidden = rows.length < 20;
 }
 function queueSearch(value, immediate = false) {
   clearTimeout(searchTimer);
   searchVersion++;
   searchQuery = value.trim();
-  $('#friend-directory').hidden = Boolean(searchQuery);
   $('#search-directory').hidden = !searchQuery;
   $('#search-results').replaceChildren();
   $('#search-more').hidden = true;

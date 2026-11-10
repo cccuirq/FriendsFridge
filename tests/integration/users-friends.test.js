@@ -59,6 +59,8 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     const results = await alice.request('/api/users?q=bo');
     assert.equal(results.status, 200); assert.equal(results.body.data[0]._id, bobId);
     assert.equal(results.body.data[0].email, undefined); assert.equal(results.body.data[0].password_hash, undefined);
+    assert.deepEqual((await alice.request('/api/users?q=bo&invitable=1')).body.data.map((user) => user._id), [bobId]);
+    assert.deepEqual((await alice.request('/api/friends/directory?q=bo')).body.data, []);
     assert.equal((await alice.request('/api/users?q=.*')).body.data.length, 0);
     assert.equal((await alice.request('/api/users?q=b')).status, 400);
     assert.equal((await alice.request('/api/users?q=bo&offset=-1')).status, 400);
@@ -72,6 +74,8 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     const results = await Promise.all([alice.request('/api/friends/requests', 'POST', { user_id: bobId }), bob.request('/api/friends/requests', 'POST', { user_id: aliceId })]);
     assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
     const relation = await db.collection('friendships').findOne({}); relationId = relation._id;
+    assert.deepEqual((await alice.request('/api/users?q=bo&invitable=1')).body.data, []);
+    assert.deepEqual((await bob.request('/api/users?q=al&invitable=1')).body.data, []);
     const sender = relation.requested_by === aliceId ? alice : bob;
     const recipient = sender === alice ? bob : alice;
     assert.equal((await sender.request('/api/friends/requests?direction=outgoing')).body.data.length, 1);
@@ -87,6 +91,12 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     const reapplied = await alice.request('/api/friends/requests', 'POST', { user_id: bobId });
     assert.equal(reapplied.status, 201); assert.equal(reapplied.body.data._id, relationId);
     assert.equal((await bob.request(`/api/friends/requests/${relationId}`, 'PATCH', { status: 'accepted' })).status, 200);
+    assert.deepEqual((await alice.request('/api/friends/directory?q=BO')).body.data.map((row) => row._id), [bobId]);
+    assert.deepEqual((await bob.request('/api/friends/directory?q=NOT%20HTML')).body.data.map((row) => row._id), [aliceId]);
+    assert.deepEqual((await alice.request('/api/friends/directory?q=.*')).body.data, []);
+    assert.deepEqual((await alice.request('/api/friends/directory?q=eve')).body.data, []);
+    assert.deepEqual((await alice.request('/api/users?q=bo&invitable=1')).body.data, []);
+    assert.equal((await alice.request('/api/users?q=bo')).body.data[0]._id, bobId);
     for (const person of [alice, bob]) {
       const result = await person.request('/api/friends');
       assert.equal(result.body.data.length, 1); assert.equal(result.body.data[0].user.email, undefined);

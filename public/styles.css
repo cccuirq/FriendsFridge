@@ -231,6 +231,7 @@ a.person:hover strong { text-decoration: underline; text-underline-offset: 3px; 
 .friend-fridge-link:hover { background: var(--yellow); }
 .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
 .invitations h2 { margin: 0; }
+.invite-search { margin-bottom: 20px; }
 .invitations h2:not(:first-child) { margin-top: 18px; }
 .invitations li { flex-wrap: wrap; }
 .more { margin-top: 12px; }

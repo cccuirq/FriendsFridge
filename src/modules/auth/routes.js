@@ -53,12 +53,14 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
     let data;
     if (key === 'GET /api/users/me') data = ownUser(user);
     else if (key === 'PATCH /api/users/me') data = await auth.updateProfile(user._id, await readJson(request));
-    else if (key === 'GET /api/users') data = await auth.search(user._id, url.searchParams.get('q'), page(url));
-    else if (key === 'GET /api/friends') data = await friends.list(user._id, 'accepted', null, page(url));
+    else if (key === 'GET /api/users') {
+      data = await auth.search(user._id, url.searchParams.get('q'), page(url), url.searchParams.get('invitable') === '1');
+    } else if (key === 'GET /api/friends') data = await friends.list(user._id, 'accepted', null, page(url));
     else if (key === 'GET /api/friends/directory') {
       const count = url.searchParams.get('count') ?? '20';
       if (!/^[1-9]\d{0,5}$/.test(count)) throw new HttpError(400, 'INVALID_INPUT', 'Invalid directory size.');
-      data = await conversations.directory(user._id, Number(count));
+      const query = string(url.searchParams.get('q') ?? '', 'Search', 0, 100);
+      data = await conversations.directory(user._id, Number(count), query);
     } else if (key === 'GET /api/friends/conversations/events') {
       events.subscribe(user._id, cookie(request), response);
       return true;

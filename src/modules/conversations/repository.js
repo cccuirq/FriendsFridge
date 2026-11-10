@@ -94,8 +94,9 @@ export function conversationRepository(client, db) {
       ]).toArray();
     },
 
-    async directory(actorId, count) {
+    async directory(actorId, count, query) {
       const actorIsLow = { $eq: ['$user_low_id', actorId] };
+      const match = query ? { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } : null;
       return messages.aggregate([
         ...latestByPeer(actorId),
         { $unionWith: { coll: 'friendships', pipeline: [
@@ -111,10 +112,14 @@ export function conversationRepository(client, db) {
           _id: '$_id', latest: { $max: '$latest' }, active: { $max: '$active' },
           unread: { $max: '$unread' }, updated_at: { $max: '$updated_at' },
         } },
-        { $match: { $or: [{ active: true }, { latest: { $ne: null } }] } },
+        { $match: match ? { active: true } : { $or: [{ active: true }, { latest: { $ne: null } }] } },
+        ...(match ? [
+          ...peerLookup,
+          { $match: { $or: [{ 'peer.username': match }, { 'peer.display_name': match }] } },
+        ] : []),
         { $sort: { unread: -1, 'latest.created_at': -1, updated_at: -1, _id: 1 } },
         { $limit: count + 1 },
-        ...peerLookup,
+        ...(match ? [] : peerLookup),
       ]).toArray();
     },
 

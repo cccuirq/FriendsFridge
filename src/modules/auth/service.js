@@ -86,11 +86,19 @@ export function authService(client, db) {
       if ('email' in data) changes.email = email(data.email);
       return ownUser(await users.findOneAndUpdate({ _id: userId }, { $set: changes }, { returnDocument: 'after' }));
     },
-    async search(userId, query, skip) {
+    async search(userId, query, skip, invitable = false) {
       const q = string(query, 'Search', 2, 50).toLowerCase();
       // Treat search as literal text, not an arbitrary regex from the caller.
       const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return users.find({ _id: { $ne: userId }, username: { $regex: `^${escaped}` } }, { projection: { _id: 1, username: 1, display_name: 1 } }).sort({ username: 1 }).skip(skip).limit(20).toArray();
+      const filter = { _id: { $ne: userId }, username: { $regex: `^${escaped}` } };
+      if (invitable) {
+        const relationships = await db.collection('friendships').find({
+          status: { $in: ['pending', 'accepted'] },
+          $or: [{ user_low_id: userId }, { user_high_id: userId }],
+        }, { projection: { user_low_id: 1, user_high_id: 1 } }).toArray();
+        filter._id.$nin = relationships.map((row) => row.user_low_id === userId ? row.user_high_id : row.user_low_id);
+      }
+      return users.find(filter, { projection: { _id: 1, username: 1, display_name: 1 } }).sort({ username: 1 }).skip(skip).limit(20).toArray();
     },
   };
 }

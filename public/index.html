@@ -70,9 +70,9 @@
           </div>
         </div>
 
-        <form id="search-form" class="search" role="search">
+        <form id="friend-filter-form" class="search" role="search">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></svg>
-          <input name="q" type="search" aria-label="Find friends by username" maxlength="50" placeholder="Search usernames" autocomplete="off" />
+          <input id="friend-filter" name="q" type="search" aria-label="Search your friends" maxlength="100" placeholder="Search your friends" autocomplete="off" />
         </form>
 
         <div id="friend-directory">
@@ -85,16 +85,23 @@
           <ul id="friends-list" aria-label="Your friends"></ul>
           <button type="button" class="secondary more" id="friends-more" hidden>Load more</button>
         </div>
-        <div id="search-directory" hidden>
-          <p id="search-status" class="muted" role="status"></p>
-          <ul id="search-results" aria-label="Search results"></ul>
-          <button type="button" class="secondary more" id="search-more" hidden>Load more results</button>
-        </div>
       </section>
 
       <section id="invitations-page" class="page" aria-labelledby="invitations-title" hidden>
         <a class="back-link" href="#friends">← Friends</a>
         <h1 id="invitations-title" tabindex="-1">Friend invites</h1>
+        <section class="invite-search" aria-labelledby="add-friends-title">
+          <h2 id="add-friends-title">Add friends</h2>
+          <form id="search-form" class="search" role="search">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></svg>
+            <input name="q" type="search" aria-label="Find new friends by username" maxlength="50" placeholder="Search by username" autocomplete="off" />
+          </form>
+          <div id="search-directory" hidden>
+            <p id="search-status" class="muted" role="status"></p>
+            <ul id="search-results" aria-label="People to invite"></ul>
+            <button type="button" class="secondary more" id="search-more" hidden>Load more results</button>
+          </div>
+        </section>
         <div class="card invitations">
           <h2>Received</h2>
           <ul id="incoming-list"></ul>

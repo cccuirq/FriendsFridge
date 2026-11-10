@@ -13,7 +13,7 @@ Friend’s Fridge helps users keep track of groceries, decide what to cook, and 
 ## Current status
 
 - **Accounts.** Create an account, sign in or out, and edit your profile from the avatar menu.
-- **Friends.** Search by username and manage friend invitations. Select a friend’s name to open the conversation, or use the fridge icon to see the ingredients they’ve shared.
+- **Friends.** Find existing friends by name or username. Open **Invites** to search for new people by username and manage invitations. Select a friend’s name to open the conversation, or use the fridge icon to see the ingredients they’ve shared.
 - **Messages.** The Friends list shows the latest message and puts unread conversations first. New messages and ingredient requests appear automatically. Red dots on the Friends tab and individual rows show what’s unread.
 - **Ingredient requests.** Choose an ingredient and quantity from a friend’s shared fridge. The request appears in your conversation, where your friend can accept or decline it and record the handoff. Inventory is deducted when the handoff is marked complete.
 
