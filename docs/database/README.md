@@ -20,7 +20,9 @@ For Atlas, put your connection string in `MONGODB_URI` in `.env`, set `MONGODB_D
 
 If Docker is unavailable, run `npm run db:local` in a separate terminal instead of Docker. This downloads and starts a real local MongoDB replica set on port 27017, initializes the collections and seeds automatically, and keeps data in the ignored `.local/mongodb/` directory. Leave that terminal running, then run `npm start` in another terminal. Stop with Ctrl+C; restart with the same command. This helper always uses the local `friends_fridge` database and is for development only. Do not run it alongside Docker MongoDB on the same port.
 
-`db:init` creates collections, strict validators, and indexes. It can be rerun without dropping data; existing collections receive updated validators. It backfills missing ingredient `fresh_interval` fields with `null`, preserving existing values. It does not repair other invalid documents or resolve duplicate data. `db:seed` inserts 20 standard ingredients without changing existing ingredient IDs, names, or units.
+`db:init` creates collections, strict validators, and indexes. It can be rerun without dropping data; existing collections receive updated validators. It backfills missing ingredient `fresh_interval` fields with `null`, preserving existing values. It does not repair other invalid documents or resolve duplicate data. `db:seed` inserts 206 standard ingredients (including the 204 recognition candidates from the shared vocabulary) without changing existing ingredient IDs, names, or units.
+
+Photo Recognition adds `inventory_imports` with a unique `(user_id, batch_id)` index. These confirmation receipts make stock increments idempotent across retries and restarts, using the same transaction as `inventory_items` writes. They contain no images. See [the integration contract](../api/photo-recognition.md).
 
 The server requires a working database connection and applies collection validators/indexes at startup. `GET /api/health` pings MongoDB and returns 200 or 503. The local helper also seeds two public sample recipes. For an existing database, run `npm run db:seed:recipes` after seeding ingredients.
 

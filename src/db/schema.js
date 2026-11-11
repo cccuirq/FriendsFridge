@@ -18,6 +18,8 @@ function collection(properties, indexes = [], expressions = [], optional = {}) {
 }
 
 export const collections = {
+  // Stores confirmation IDs only, never photos; keeps retries safe across restarts.
+  inventory_imports: collection({ user_id: id, batch_id: id, fingerprint: { bsonType: 'string', pattern: '^[a-f0-9]{64}$' } }, [unique({ user_id: 1, batch_id: 1 })]),
   users: collection({ username: text(50), email: text(255), password_hash: text(), display_name: text(100) }, [unique({ username: 1 }), unique({ email: 1 })]),
   sessions: collection({ user_id: id, token_hash: { bsonType: 'string', pattern: '^[a-f0-9]{64}$' }, expires_at: date }, [unique({ token_hash: 1 }), index({ user_id: 1 }), { key: { expires_at: 1 }, expireAfterSeconds: 0 }]),
   ingredients: collection({ name: text(100), category: text(50), default_unit: text(20), fresh_interval: { anyOf: [quantity(1), { bsonType: 'null' }] } }, [unique({ name: 1 })]),

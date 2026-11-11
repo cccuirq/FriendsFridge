@@ -3,3 +3,9 @@ node_modules/
 .DS_Store
 npm-debug.log*
 .local/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pt
+*.onnx
+services/recognition/.cache/

@@ -1,7 +1,10 @@
 import { createRecipesPage } from './js/pages/recipes/recipes.js';
+import { createRecognitionPage, createInventoryPreview } from './js/pages/recognition/recognition.js';
 
 const $ = (selector) => document.querySelector(selector);
 const recipesPage = createRecipesPage($('#recipes-page'), { api, measure });
+const recognitionPage = createRecognitionPage($('#recognition-page'), { api });
+const inventoryPreview = createInventoryPreview($('#my-fridge-page'), { api, measure });
 const requestPath = '/api/friends/ingredient-requests';
 const listPaths = {
   incoming: '/api/friends/requests?direction=incoming',
@@ -41,8 +44,8 @@ async function api(path, method = 'GET', body) {
   const response = await fetch(path, {
     method,
     credentials: 'same-origin',
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
+    headers: body ? { 'Content-Type': body instanceof Blob ? body.type : 'application/json' } : {},
+    body: body instanceof Blob ? body : body ? JSON.stringify(body) : undefined,
   });
   const result = await response.json();
   if (!response.ok) {
@@ -70,6 +73,8 @@ function displayProfile(user) {
 function showAccount(user) {
   generation++;
   recipesPage.reset();
+  recognitionPage.reset();
+  inventoryPreview.reset();
   currentUser = user;
   offsets = {};
   clearTimeout(searchTimer);
@@ -513,13 +518,16 @@ function renderRoute(focus = false) {
   const hash = location.hash === '#activity' ? 'friends' : location.hash.slice(1);
   const shared = /^friends\/([0-9a-f-]{36})$/.exec(hash);
   const chat = /^conversation\/([0-9a-f-]{36})$/.exec(hash);
-  const mainPages = ['my-fridge', 'recipes', 'friends', 'profile', 'invitations'];
+  const mainPages = ['my-fridge', 'recipes', 'friends', 'profile', 'invitations', 'recognition'];
   const page = shared ? 'fridge' : chat ? 'conversation' : mainPages.includes(hash) ? hash : 'my-fridge';
   const activeTab = ['fridge', 'invitations', 'conversation'].includes(page) ? 'friends' : page;
   conversation = null;
   for (const panel of document.querySelectorAll('.page')) panel.hidden = panel.id !== page + '-page';
   if (page === 'recipes') recipesPage.open();
   else recipesPage.reset();
+  if (page === 'recognition') recognitionPage.open();
+  if (page === 'my-fridge') inventoryPreview.open();
+  else inventoryPreview.reset();
   for (const tab of document.querySelectorAll('.main-nav a')) {
     if (tab.hash === '#' + activeTab) tab.setAttribute('aria-current', 'page');
     else tab.removeAttribute('aria-current');

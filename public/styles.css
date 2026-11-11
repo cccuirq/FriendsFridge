@@ -11,6 +11,15 @@
   --peach: #ffc8ad;
   --mint: #d2efdb;
 }
+.recognition-panel { margin-bottom: 22px; }
+.recognition-preview { display: block; width: 100%; height: auto; margin: 18px 0; border: 2px solid var(--ink); border-radius: 10px; }
+.recognition-status { line-height: 1.5; overflow-wrap: anywhere; }
+.recognition-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(80px, 1fr) 70px auto; gap: 10px; align-items: end; padding: 16px 0; border-top: 1px solid var(--line); }
+.recognition-row label { min-width: 0; margin: 0; }
+.recognition-row small { grid-column: 1 / -1; }
+.recognition-row [data-unit] { align-self: center; }
+.recognition-panel .actions { flex-wrap: wrap; }
+.recognition-stock { padding-left: 22px; line-height: 2; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; }
@@ -297,4 +306,12 @@ dialog .actions { justify-content: flex-end; }
 @media (max-width: 370px) {
   .page-heading .button { padding-inline: 8px; }
   .page-heading .icon { display: none; }
+}
+@media (max-width: 900px) {
+  .brand { grid-template-columns: 1fr auto; }
+  .main-nav { grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; padding-bottom: 12px; }
+  .account-menu { grid-column: 2; grid-row: 1; }
+}
+@media (max-width: 540px) {
+  .recognition-row { grid-template-columns: minmax(0, 1fr) minmax(80px, 1fr); }
 }

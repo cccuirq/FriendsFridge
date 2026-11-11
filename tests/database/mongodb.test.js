@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { MongoClient } from 'mongodb';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { initializeDatabase } from '../../src/db/schema.js';
-import { seedIngredients } from '../../database/seeds/ingredients.js';
+import { seedIngredients, ingredients } from '../../database/seeds/ingredients.js';
 import { ingredientRequestRepository } from '../../src/modules/ingredient-requests/repository.js';
 import { recipeRepository } from '../../src/modules/recipes/repository.js';
 
@@ -18,10 +18,10 @@ test('MongoDB validators, indexes, seeds, permissions and transactions', { timeo
   await db.collection('ingredients').insertOne({ _id: randomUUID(), name: 'egg', category: 'protein', default_unit: 'piece', created_at: new Date() });
   await initializeDatabase(db);
   await initializeDatabase(db);
-  assert.equal((await db.listCollections().toArray()).length, 11);
+  assert.equal((await db.listCollections().toArray()).length, 12);
   await seedIngredients(db);
   await seedIngredients(db);
-  assert.equal(await db.collection('ingredients').countDocuments(), 20);
+  assert.equal(await db.collection('ingredients').countDocuments(), ingredients.length);
   const ingredient = await db.collection('ingredients').findOne({ name: 'egg' });
   assert.equal(ingredient.fresh_interval, null);
   for (const fresh_interval of [-1, 0, 1.5, '7']) {
