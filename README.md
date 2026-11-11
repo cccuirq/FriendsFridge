@@ -19,7 +19,9 @@ Friend’s Fridge helps users keep track of groceries, decide what to cook, and 
 
 - **Recipes.** Browse recommendations based on your current inventory, see exactly what is missing, save recipes, and create private recipes to share with accepted friends.
 
-After sign-in, the app opens **My Fridge**. Personal inventory editing and photo recognition are planned.
+After sign-in, the app opens **My Fridge**, which shows saved inventory. **Photo Recognition** uploads a JPG/PNG to a local YOLO-World service, lets the user correct suggestions, and adds confirmed ingredients to the same inventory. General inventory editing is still planned.
+
+For Photo Recognition, follow the [setup, testing and Inventory integration guide](docs/photo-recognition.md). It requires a separate Python 3.11 environment and local model service; the existing app still runs when that service is stopped, and manual ingredient entry remains available.
 
 ## Run locally
 

@@ -3,7 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { connectDatabase } from '../../src/db/connection.js';
 
-export const ingredients = [
+import { recognitionIngredients } from '../../shared/recognition-ingredients.js';
+export { recognitionIngredients };
+const originalIngredients = [
   ['egg', 'protein', 'piece'], ['milk', 'dairy', 'ml'],
   ['flour', 'grain', 'g'], ['butter', 'dairy', 'g'],
   ['sugar', 'pantry', 'g'], ['salt', 'pantry', 'g'],
@@ -14,7 +16,13 @@ export const ingredients = [
   ['chicken', 'protein', 'g'], ['tofu', 'protein', 'g'],
   ['olive oil', 'pantry', 'ml'], ['water', 'drink', 'ml'],
   ['coffee', 'drink', 'g'], ['lemon', 'fruit', 'piece'],
+  ['apple', 'fruit', 'piece'], ['banana', 'fruit', 'piece'],
+  ['orange', 'fruit', 'piece'], ['broccoli', 'vegetable', 'g'],
 ];
+// Preserve the original dictionary's names/units and only append missing entries.
+export const ingredients = [...originalIngredients, ...recognitionIngredients
+  .filter((item) => !originalIngredients.some(([name]) => name === item.name))
+  .map(({ name, category, default_unit }) => [name, category, default_unit])];
 
 export async function seedIngredients(db) {
   for (const [name, category, default_unit] of ingredients) {
@@ -26,6 +34,6 @@ export async function seedIngredients(db) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { client, db } = await connectDatabase();
-  try { await seedIngredients(db); console.log('Seeded 20 standard ingredients (existing records preserved).'); }
+  try { await seedIngredients(db); console.log(`Seeded ${ingredients.length} standard ingredients (existing records preserved).`); }
   finally { await client.close(); }
 }

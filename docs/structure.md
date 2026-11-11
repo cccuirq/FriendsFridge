@@ -1,6 +1,8 @@
 # Project directory structure
 
-The project uses MongoDB with validated application collections and a sessions collection. See [database setup](database/README.md) for connection settings, initialization, seed data, and database tests. The User & Friends frontend and HTTP APIs are implemented; other feature directories remain scaffolding.
+The project uses MongoDB with validated application collections and a sessions collection. See [database setup](database/README.md) for connection settings, initialization, seed data, and database tests. User & Friends, recipes, ingredient requests and Photo Recognition are implemented. Personal inventory currently exposes a read-only list and confirmed batch additions; general inventory editing remains pending.
+
+Photo Recognition adds `services/recognition/` for a local Python model service, `public/js/pages/recognition/recognition.js` for upload/review, and `src/modules/recognition/routes.js` for the authenticated proxy. `src/modules/inventory/repository.js` writes the existing inventory using transaction receipts in `inventory_imports`. See [the implementation and handoff guide](photo-recognition.md).
 
 ```text
 409FinalProj/
@@ -40,6 +42,9 @@ The project uses MongoDB with validated application collections and a sessions c
 |-- database/
 |   |-- migrations/            # Ordered MongoDB schema changes
 |   `-- seeds/                 # Common ingredients and sample data
+|-- shared/                    # Recognition vocabulary shared by Python and Node
+|-- services/
+|   `-- recognition/           # FastAPI, offline YOLO-World setup and tests
 |-- tests/
 |   |-- unit/
 |   |-- integration/
@@ -60,13 +65,13 @@ The project uses MongoDB with validated application collections and a sessions c
 | --- | --- | --- |
 | `auth` | `users`, `sessions` | Accounts, login, logout, password hashes |
 | `ingredients` | `ingredients` | Canonical ingredient names and default units |
-| `inventory` | `inventory_items` | One row per user and ingredient; private/friends visibility |
+| `inventory` | `inventory_items`, `inventory_imports` | One row per user and ingredient; visibility and idempotent import receipts |
 | `recipes` | `recipes`, `recipe_ingredients`, `saved_recipes`, `recipe_shares` | Food and drink recipes, missing ingredients, saving, explicit sharing |
 | `friendships` | `friendships` | One ordered user pair; pending/accepted/declined/removed |
 | `ingredient-requests` | `ingredient_requests` | Request, accept, decline, cancel, and complete |
-| `recognition` | None initially | Generate suggestions; save inventory only after user confirmation |
+| `recognition` | None | Generate suggestions in memory; save inventory only after user confirmation |
 
-Within each backend module, add routes, controllers, services, and repository files as needed. Keep database access in repositories and business rules in services. Ingredient request transactions and recipe deletion are implemented as repository functions; User & Friends authenticated endpoints are implemented; remaining feature endpoints are pending. The server checks MongoDB at startup and exposes GET /api/health. It serves its original three frontend files; new frontend assets will require static route support when implemented.
+Within each backend module, add routes, controllers, services, and repository files as needed. Keep database access in repositories and business rules in services. The server checks MongoDB at startup and exposes GET /api/health. Static routes include the recipes and recognition ES modules; future frontend assets still require explicit static route registration.
 
 ## Shared implementation rules
 
@@ -80,7 +85,7 @@ Within each backend module, add routes, controllers, services, and repository fi
 - On completion, recheck and deduct stock and update request status in one transaction; prevent duplicate completion and negative inventory. Inventory deletion must not delete request history.
 - Cascade recipe deletion to its ingredient rows, saves, and shares. Index inventory user IDs, both friendship participants, and request owner/requester IDs.
 - Compute missing ingredients from recipes and inventory rather than storing another table. Recognition suggestions remain drafts until reviewed and confirmed; no upload-history table is required initially.
-- Keep credentials and private uploaded images outside `public/`. Define private upload storage when implementing recognition.
+- Keep credentials and private uploaded images outside `public/`. Recognition currently processes uploads in memory without persistent storage.
 - Agree on API response and error formats in `docs/api/` before connecting modules.
 
 Empty directories contain `.gitkeep` so Git can preserve the scaffold. Replace placeholders as implementation files are added.

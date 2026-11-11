@@ -21,6 +21,7 @@
       </a>
       <nav class="main-nav" aria-label="Main navigation" hidden>
         <a href="#my-fridge">My Fridge</a>
+        <a href="#recognition">Photo Recognition</a>
         <a href="#recipes">Recipes</a>
         <a href="#friends">Friends<span class="notification-dot unread-dot" data-unread-summary role="img" aria-label="Unread messages" hidden></span></a>
       </nav>
@@ -144,9 +145,49 @@
         <a id="fridge-conversation" class="back-link fridge-conversation" hidden>Open conversation →</a>
       </section>
 
-      <section id="my-fridge-page" class="page placeholder card" aria-labelledby="my-fridge-title" hidden>
+      <section id="my-fridge-page" class="page card" aria-labelledby="my-fridge-title" hidden>
         <h1 id="my-fridge-title" tabindex="-1">My Fridge</h1>
-        <p class="pill">Coming soon</p>
+        <p data-stock-status class="muted" role="status"></p>
+        <ul data-stock class="recognition-stock" aria-label="Your saved ingredients"></ul>
+        <a href="#recognition" class="button">Add from a photo</a>
+      </section>
+
+      <section id="recognition-page" class="page" aria-labelledby="recognition-title" hidden>
+        <h1 id="recognition-title" tabindex="-1">Photo Recognition</h1>
+        <p class="muted">Snap your groceries. Review the suggestions. Stock your fridge.</p>
+        <div class="card recognition-panel">
+          <h2>1. Choose a photo</h2>
+          <label>Ingredient photo<input data-upload type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" aria-describedby="photo-file-help" /></label>
+          <p id="photo-file-help" class="muted">JPG or PNG · up to 10 MB and 20 megapixels. Photos are processed in memory and are not saved.</p>
+          <canvas data-preview class="recognition-preview" role="img" aria-label="Uploaded photo with original model detection boxes" hidden></canvas>
+          <div class="actions">
+            <button data-recognize type="button" disabled>Recognize Ingredients</button>
+            <button data-new type="button" class="secondary">Start New Photo</button>
+          </div>
+        </div>
+        <p data-status class="recognition-status" role="status" aria-live="polite">Choose a photo, or add ingredients manually. Nothing is saved until you confirm.</p>
+        <button data-retry type="button" class="secondary" hidden>Reload ingredient list</button>
+        <form data-confirm-form class="card recognition-panel">
+          <h2>2. Review and confirm</h2>
+          <p class="muted">Correct names using the shared ingredient list. Check counts; enter grams (g) or millilitres (ml) yourself. The photo cannot measure weight or volume. Adding increases any existing stock.</p>
+          <datalist id="recognition-catalog" data-catalog></datalist>
+          <div data-rows></div>
+          <p data-empty class="muted">No ingredients to review yet.</p>
+          <div class="actions">
+            <button data-add type="button" class="secondary">+ Add Ingredient</button>
+            <button data-confirm type="submit" disabled>Confirm and Add to Fridge</button>
+          </div>
+          <a data-saved href="#my-fridge" class="back-link" hidden>View My Fridge →</a>
+        </form>
+        <template data-row-template>
+          <div class="recognition-row">
+            <label>Ingredient name<input name="ingredient" list="recognition-catalog" maxlength="100" required autocomplete="off" /></label>
+            <label>Quantity<input name="quantity" type="number" min="0.01" step="0.01" required inputmode="decimal" /></label>
+            <span data-unit class="muted" aria-live="polite"></span>
+            <button type="button" class="secondary">Remove</button>
+            <small data-confidence class="muted"></small>
+          </div>
+        </template>
       </section>
 
       <section id="recipes-page" class="page" aria-labelledby="recipes-title" hidden>
