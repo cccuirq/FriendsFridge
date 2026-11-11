@@ -1,10 +1,11 @@
 import { createRecipesPage } from './js/pages/recipes/recipes.js';
-import { createRecognitionPage, createInventoryPreview } from './js/pages/recognition/recognition.js';
+import { createRecognitionPage } from './js/pages/recognition/recognition.js';
+import { createInventoryPage } from './js/pages/inventory/inventory.js';
 
 const $ = (selector) => document.querySelector(selector);
 const recipesPage = createRecipesPage($('#recipes-page'), { api, measure });
 const recognitionPage = createRecognitionPage($('#recognition-page'), { api });
-const inventoryPreview = createInventoryPreview($('#my-fridge-page'), { api, measure });
+const inventoryPage = createInventoryPage($('#my-fridge-page'), { api, measure });
 const requestPath = '/api/friends/ingredient-requests';
 const listPaths = {
   incoming: '/api/friends/requests?direction=incoming',
@@ -74,7 +75,7 @@ function showAccount(user) {
   generation++;
   recipesPage.reset();
   recognitionPage.reset();
-  inventoryPreview.reset();
+  inventoryPage.reset(true);
   currentUser = user;
   offsets = {};
   clearTimeout(searchTimer);
@@ -526,8 +527,8 @@ function renderRoute(focus = false) {
   if (page === 'recipes') recipesPage.open();
   else recipesPage.reset();
   if (page === 'recognition') recognitionPage.open();
-  if (page === 'my-fridge') inventoryPreview.open();
-  else inventoryPreview.reset();
+  if (page === 'my-fridge') inventoryPage.open();
+  else inventoryPage.reset();
   for (const tab of document.querySelectorAll('.main-nav a')) {
     if (tab.hash === '#' + activeTab) tab.setAttribute('aria-current', 'page');
     else tab.removeAttribute('aria-current');

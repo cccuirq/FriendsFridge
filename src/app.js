@@ -7,6 +7,7 @@ import { HttpError, json } from './utils/http.js';
 const files = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+  '/js/pages/inventory/inventory.js': ['js/pages/inventory/inventory.js', 'text/javascript; charset=utf-8'],
   '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
   '/js/pages/recipes/recipes.js': ['js/pages/recipes/recipes.js', 'text/javascript; charset=utf-8'],
   '/js/pages/recognition/recognition.js': ['js/pages/recognition/recognition.js', 'text/javascript; charset=utf-8'],

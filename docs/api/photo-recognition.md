@@ -52,4 +52,4 @@ Receipt schema addition: `inventory_imports { _id, user_id, batch_id, fingerprin
 
 ## GET /api/inventory
 
-Returns `{ "data": [inventoryItem] }` for the signed-in user only, sorted by ingredient name. Each item has the existing inventory fields and joined `ingredient` dictionary document. The prototype reads all of this user's items; pagination and general inventory update/delete routes remain Inventory-module work.
+Returns `{ "data": [inventoryItem] }` for the signed-in user only, sorted by ingredient name. Each item has the existing inventory fields and joined `ingredient` dictionary document. The prototype reads all of this user's items; pagination remains future work. Manual add/edit/delete and visibility routes are documented in [the inventory API](inventory.md).
