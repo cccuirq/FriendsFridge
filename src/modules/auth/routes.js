@@ -3,6 +3,7 @@ import { friendshipService } from '../friendships/service.js';
 import { ingredientRequestRepository } from '../ingredient-requests/repository.js';
 import { conversationRepository } from '../conversations/repository.js';
 import { recipeRoutes } from '../recipes/routes.js';
+import { inventoryRoutes } from '../inventory/routes.js';
 import { recognitionRoutes } from '../recognition/routes.js';
 import { HttpError, json, readJson, uuid, fields, string } from '../../utils/http.js';
 
@@ -13,6 +14,7 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
   const conversations = conversationRepository(client, db);
   const recipes = recipeRoutes(client, db);
   const recognition = recognitionRoutes(client, db);
+  const inventory = inventoryRoutes(client, db);
   const attempts = new Map();
   const cookie = (request) => request.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith('ff_session='))?.slice(11);
   const setCookie = (response, token) => response.setHeader('Set-Cookie', `ff_session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? 604800 : 0}${secureCookies ? '; Secure' : ''}`);
@@ -23,7 +25,7 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
   };
   return async (request, response, url) => {
     const path = url.pathname;
-    if (!/^\/api\/(auth|users|friends|recipes|recognition|inventory)(?:\/|$)/.test(path)) return false;
+    if (!/^\/api\/(auth|users|friends|recipes|recognition|inventory|ingredients)(?:\/|$)/.test(path)) return false;
     if (!['GET', 'HEAD'].includes(request.method)) {
       const expected = `${secureCookies ? 'https' : 'http'}://${request.headers.host}`;
       if ((request.headers.origin && request.headers.origin !== expected) || request.headers['sec-fetch-site'] === 'cross-site') throw new HttpError(403, 'CROSS_ORIGIN', 'Cross-origin requests are not allowed.');
@@ -47,6 +49,10 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
       setCookie(response, ''); json(response, 200, { data: { logged_out: true } }); return true;
     }
     const user = await auth.authenticate(cookie(request));
+    if (path === '/api/ingredients' || (path.startsWith('/api/inventory') && path !== '/api/inventory/imports')) {
+      await inventory(request, response, path, user._id);
+      return true;
+    }
     if (/^\/api\/(recognition|inventory)(?:\/|$)/.test(path)) {
       await recognition(request, response, path, user._id);
       return true;

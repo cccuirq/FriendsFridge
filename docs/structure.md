@@ -1,6 +1,6 @@
 # Project directory structure
 
-The project uses MongoDB with validated application collections and a sessions collection. See [database setup](database/README.md) for connection settings, initialization, seed data, and database tests. User & Friends, recipes, ingredient requests and Photo Recognition are implemented. Personal inventory currently exposes a read-only list and confirmed batch additions; general inventory editing remains pending.
+The project uses MongoDB with validated application collections and a sessions collection. See [database setup](database/README.md) for connection settings, initialization, seed data, and database tests. User & Friends, recipes, ingredient requests and Photo Recognition are implemented. Personal inventory supports dictionary additions, quantity updates, deletion, per-item friends visibility, and confirmed batch imports. See [the inventory API](api/inventory.md).
 
 Photo Recognition adds `services/recognition/` for a local Python model service, `public/js/pages/recognition/recognition.js` for upload/review, and `src/modules/recognition/routes.js` for the authenticated proxy. `src/modules/inventory/repository.js` writes the existing inventory using transaction receipts in `inventory_imports`. See [the implementation and handoff guide](photo-recognition.md).
 
@@ -71,7 +71,7 @@ Photo Recognition adds `services/recognition/` for a local Python model service,
 | `ingredient-requests` | `ingredient_requests` | Request, accept, decline, cancel, and complete |
 | `recognition` | None | Generate suggestions in memory; save inventory only after user confirmation |
 
-Within each backend module, add routes, controllers, services, and repository files as needed. Keep database access in repositories and business rules in services. The server checks MongoDB at startup and exposes GET /api/health. Static routes include the recipes and recognition ES modules; future frontend assets still require explicit static route registration.
+Within each backend module, add routes, controllers, services, and repository files as needed. Keep database access in repositories and business rules in services. The server checks MongoDB at startup and exposes GET /api/health. Static routes include the inventory, recipes and recognition ES modules; future frontend assets still require explicit static route registration.
 
 ## Shared implementation rules
 

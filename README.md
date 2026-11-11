@@ -19,7 +19,7 @@ Friend’s Fridge helps users keep track of groceries, decide what to cook, and 
 
 - **Recipes.** Browse recommendations based on your current inventory, see exactly what is missing, save recipes, and create private recipes to share with accepted friends.
 
-After sign-in, the app opens **My Fridge**, which shows saved inventory. **Photo Recognition** uploads a JPG/PNG to a local YOLO-World service, lets the user correct suggestions, and adds confirmed ingredients to the same inventory. General inventory editing is still planned.
+After sign-in, **My Fridge** opens an illustrated refrigerator with your saved stock. Add food from the ingredient dictionary, edit quantities, use quick increase/decrease controls, delete entries, and choose **Only me** or **Friends** visibility for each ingredient. **Photo Recognition** uploads a JPG/PNG to a local YOLO-World service, lets the user correct suggestions, and adds confirmed ingredients to the same inventory.
 
 For Photo Recognition, follow the [setup, testing and Inventory integration guide](docs/photo-recognition.md). It requires a separate Python 3.11 environment and local model service; the existing app still runs when that service is stopped, and manual ingredient entry remains available.
 
@@ -47,4 +47,4 @@ See the [project structure](docs/structure.md) for more detail.
 
 ## API
 
-`GET /api/health` checks the MongoDB connection. See the [User & Friends API reference](docs/api/user-friends.md) for account and friendship endpoints.
+`GET /api/health` checks the MongoDB connection. See the [User & Friends API reference](docs/api/user-friends.md) and [Inventory API reference](docs/api/inventory.md) for endpoints and conventions.

@@ -145,11 +145,36 @@
         <a id="fridge-conversation" class="back-link fridge-conversation" hidden>Open conversation →</a>
       </section>
 
-      <section id="my-fridge-page" class="page card" aria-labelledby="my-fridge-title" hidden>
-        <h1 id="my-fridge-title" tabindex="-1">My Fridge</h1>
-        <p data-stock-status class="muted" role="status"></p>
-        <ul data-stock class="recognition-stock" aria-label="Your saved ingredients"></ul>
-        <a href="#recognition" class="button">Add from a photo</a>
+      <section id="my-fridge-page" class="page inventory-page" aria-labelledby="my-fridge-title" hidden>
+        <div class="page-heading"><h1 id="my-fridge-title" tabindex="-1">My Fridge</h1><button type="button" data-stock-add>+ Add food</button></div>
+        <p class="muted">A little stock, a lot of possibilities. Keep the good stuff in sight.</p>
+        <div class="fridge-scene">
+          <div class="fridge-cabinet">
+            <div class="fridge-freezer" aria-hidden="true"><span>fresh &amp; friendly</span><span>✦</span></div>
+            <div class="fridge-inside">
+              <div class="stock-heading"><h2>Your shelves</h2><span class="pill" data-stock-count>0 foods</span></div>
+              <p data-stock-status class="muted" role="status" aria-live="polite"></p>
+              <button type="button" class="secondary" data-stock-retry hidden>Reload fridge</button>
+              <ul data-stock class="stock-list" aria-label="Your food stock"></ul>
+              <div data-stock-empty class="stock-empty" hidden><span aria-hidden="true">🥕</span><h3>Room for something tasty</h3><p>Add food to start filling your shelves.</p></div>
+            </div>
+            <div class="fridge-door" aria-hidden="true"><span class="fridge-note">good food<br>good mood ☺</span><span class="fridge-handle"></span></div>
+          </div>
+        </div>
+        <p class="muted inventory-footnote">Only ingredients marked Friends appear in your shared fridge.</p>
+        <a href="#recognition" class="button secondary">Add from a photo →</a>
+        <dialog data-stock-dialog aria-labelledby="stock-dialog-title">
+          <form data-stock-form>
+            <h2 id="stock-dialog-title">Add food</h2>
+            <div data-stock-picker><label>Ingredient<input name="ingredient" list="stock-catalog" required maxlength="100" autocomplete="off" placeholder="Search ingredients…" /></label><datalist id="stock-catalog"></datalist></div>
+            <p data-stock-edit-name class="ingredient-name" hidden></p>
+            <label>Quantity <span data-stock-unit></span><input name="quantity" type="number" min="0.01" step="0.01" inputmode="decimal" required /></label>
+            <label>Who can see this food?<select name="visibility"><option value="private">Only me</option><option value="friends">Friends</option></select></label>
+            <p data-stock-help class="muted">Adding existing food increases its stock and keeps its sharing setting.</p>
+            <p data-stock-error role="alert"></p>
+            <div class="actions"><button type="button" class="secondary" data-stock-cancel>Cancel</button><button type="submit">Add to fridge</button></div>
+          </form>
+        </dialog>
       </section>
 
       <section id="recognition-page" class="page" aria-labelledby="recognition-title" hidden>

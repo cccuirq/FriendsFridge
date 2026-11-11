@@ -187,26 +187,3 @@ export function createRecognitionPage(root, { api }) {
   $('[data-retry]').addEventListener('click', loadCatalog);
   return { open: loadCatalog, reset() { clear(); catalog = []; $('[data-catalog]').replaceChildren(); controls(); } };
 }
-
-export function createInventoryPreview(root, { api, measure }) {
-  let version = 0;
-  return {
-    reset() { version++; root.querySelector('[data-stock]').replaceChildren(); root.querySelector('[data-stock-status]').textContent = ''; },
-    async open() {
-      const current = ++version;
-      const status = root.querySelector('[data-stock-status]');
-      const list = root.querySelector('[data-stock]');
-      list.replaceChildren(); status.textContent = 'Loading your fridge…';
-      try {
-        const items = await api('/api/inventory');
-        if (current !== version) return;
-        status.textContent = items.length ? 'Your saved ingredients. Inventory editing is still being developed.' : 'Your fridge is empty. Add your first ingredients from a photo.';
-        list.replaceChildren(...items.map((item) => {
-          const row = document.createElement('li');
-          row.textContent = `${item.ingredient.name} — ${measure(item.quantity, item.ingredient.default_unit)} · ${item.visibility}`;
-          return row;
-        }));
-      } catch (error) { if (current === version) status.textContent = error.message; }
-    },
-  };
-}
