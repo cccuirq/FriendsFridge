@@ -32,6 +32,14 @@ export function conversationEvents() {
       }
     },
 
+    publishFriendships(...userIds) {
+      for (const userId of new Set(userIds)) {
+        for (const { response } of subscribers.get(userId) ?? []) {
+          if (!response.writableEnded && !response.destroyed && !response.write('event: friendships\ndata: {}\n\n')) response.end();
+        }
+      }
+    },
+
     disconnect(token) {
       if (!token) return;
       for (const streams of subscribers.values()) {

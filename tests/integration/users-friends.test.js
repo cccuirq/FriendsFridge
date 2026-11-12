@@ -6,6 +6,7 @@ import { MongoClient } from 'mongodb';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { initializeDatabase } from '../../src/db/schema.js';
 import { createApp } from '../../src/app.js';
+import { defaultImages } from '../../public/assets/defaults/manifest.js';
 
 test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
   const replica = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: '8.0.16' } });
@@ -66,6 +67,37 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     assert.equal((await alice.request('/api/users?q=bo&offset=-1')).status, 400);
     assert.equal((await alice.request('/api/users/me', 'PATCH', { display_name: 'bad' }, { Origin: 'https://evil.example' })).status, 403);
     assert.equal((await alice.request('/api/users/me', 'PATCH', { display_name: 'bad' }, { 'Content-Type': 'text/plain' })).status, 415);
+  });
+  await t.test('email changes preserve the password and allow login by the new email or username', async () => {
+    const before = await db.collection('users').findOne({ _id: aliceId });
+    const credentials = browser();
+    const updated = await alice.request('/api/users/me', 'PATCH', { email: '  NewAlice@Example.COM  ' });
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data.email, 'newalice@example.com');
+    const after = await db.collection('users').findOne({ _id: aliceId });
+    assert.equal(after.password_hash, before.password_hash);
+    assert.equal(after.username, before.username);
+    for (const identifier of ['newalice@example.com', '  NEWALICE@EXAMPLE.COM  ', 'alice']) {
+      const login = await credentials.request('/api/auth/login', 'POST', { identifier, password: account('alice').password });
+      assert.equal(login.status, 200);
+      assert.equal(login.body.data._id, aliceId);
+      assert.equal((await credentials.request('/api/users/me')).body.data.email, 'newalice@example.com');
+      assert.equal((await credentials.request('/api/auth/logout', 'POST')).status, 200);
+    }
+    assert.equal((await credentials.request('/api/auth/login', 'POST', { identifier: 'alice@example.com', password: account('alice').password })).status, 401);
+    assert.equal((await credentials.request('/api/auth/login', 'POST', { identifier: 'newalice@example.com', password: 'incorrect password' })).status, 401);
+    // Existing authenticated devices must remain usable after an email change.
+    assert.equal((await alice.request('/api/users/me')).status, 200);
+  });
+  await t.test('invalid profile edits leave the entire profile unchanged', async () => {
+    const before = (await alice.request('/api/users/me')).body.data;
+    for (const body of [{}, { display_name: '   ' }, { email: 'invalid' }, { password_hash: 'override' }, { username: 'replacement' }]) {
+      assert.equal((await alice.request('/api/users/me', 'PATCH', body)).status, 400);
+      assert.deepEqual((await alice.request('/api/users/me')).body.data, before);
+    }
+    // A duplicate email must not partially save another field in the same request.
+    assert.equal((await alice.request('/api/users/me', 'PATCH', { email: 'BOB@EXAMPLE.COM', display_name: 'Should not save' })).status, 409);
+    assert.deepEqual((await alice.request('/api/users/me')).body.data, before);
   });
   await t.test('friend requests enforce pair uniqueness and recipient authorization', async () => {
     assert.equal((await alice.request('/api/friends/requests', 'POST', { user_id: aliceId })).status, 400);
@@ -300,8 +332,67 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     await db.collection('sessions').updateOne({ token_hash: createHash('sha256').update(token).digest('hex') }, { $set: { expires_at: new Date(0) } });
     assert.equal((await alice.request('/api/users/me')).status, 401);
   });
+  await t.test('notifies both participants on invitations, responses and removal', async (t) => {
+    const sender = browser(), recipient = browser();
+    const senderId = (await sender.request('/api/auth/register', 'POST', account('live_sender'))).body.data._id;
+    const recipientId = (await recipient.request('/api/auth/register', 'POST', account('live_recipient'))).body.data._id;
+    const readers = [];
+    const controller = new AbortController();
+    t.after(async () => {
+      controller.abort();
+      await Promise.all(readers.map((reader) => reader.cancel().catch(() => {})));
+    });
+    const decoder = new TextDecoder();
+    for (const person of [sender, recipient]) {
+      const stream = await fetch(base + '/api/friends/conversations/events', { headers: { Cookie: person.cookie }, signal: controller.signal });
+      assert.equal(stream.status, 200);
+      const reader = stream.body.getReader(); readers.push(reader);
+      assert.match(decoder.decode((await reader.read()).value), /: connected/);
+    }
+    async function notified() {
+      let timer;
+      try {
+        await Promise.race([
+          Promise.all(readers.map(async (reader) => {
+            const result = await reader.read();
+            assert.equal(result.done, false);
+            assert.match(decoder.decode(result.value), /event: friendships\ndata: \{\}/);
+          })),
+          new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('Friendship change did not notify both participants')); }, 2000); }),
+        ]);
+      } finally { clearTimeout(timer); }
+    }
+    const invitation = await sender.request('/api/friends/requests', 'POST', { user_id: recipientId });
+    assert.equal(invitation.status, 201); await notified();
+    const id = invitation.body.data._id;
+    assert.equal((await recipient.request('/api/friends/requests')).body.data[0]._id, id);
+    assert.equal((await recipient.request(`/api/friends/requests/${id}`, 'PATCH', { status: 'declined' })).status, 200); await notified();
+    assert.equal((await sender.request('/api/friends/requests?direction=outgoing')).body.data.length, 0);
+    assert.equal((await sender.request('/api/friends/requests', 'POST', { user_id: recipientId })).status, 201); await notified();
+    assert.equal((await recipient.request(`/api/friends/requests/${id}`, 'PATCH', { status: 'accepted' })).status, 200); await notified();
+    assert.equal((await recipient.request('/api/friends')).body.data[0].user._id, senderId);
+    assert.equal((await sender.request(`/api/friends/${recipientId}`, 'DELETE')).status, 200); await notified();
+    assert.equal((await recipient.request('/api/friends')).body.data.length, 0);
+  });
   await t.test('serves UI and handles malformed JSON and rate limits', async () => {
     const html = await fetch(base); assert.equal(html.status, 200); assert.match(await html.text(), /Your friends/);
+    const demo = await fetch(base + '/image-demo');
+    assert.equal(demo.status, 200); assert.match(await demo.text(), /Everyday ingredients/);
+    for (const image of defaultImages) {
+      const response = await fetch(base + image.src);
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type'), /^image\/(png|jpeg)$/);
+      assert.ok((await response.arrayBuffer()).byteLength > 1000);
+    }
+    assert.equal((await fetch(base + '/assets/defaults/unknown.png')).status, 404);
+    for (const path of ['/js/food-images.js', '/js/image-demo.js', '/assets/defaults/manifest.js']) {
+      const response = await fetch(base + path);
+      assert.equal(response.status, 200); assert.match(response.headers.get('content-type'), /javascript/);
+    }
+    const invitations = await fetch(base + '/js/pages/friends/invitations.js');
+    assert.equal(invitations.status, 200);
+    assert.match(invitations.headers.get('content-type'), /javascript/);
+    assert.match(await invitations.text(), /export async function invitationPages/);
     const invalid = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{broken' }); assert.equal(invalid.status, 400);
     assert.equal((await guest.request('/api/auth/login', 'POST', { identifier: 'x'.repeat(20000), password: 'wrong password' })).status, 413);
     const limited = createApp(client, db, { secureCookies: false, authLimit: 1 }); servers.push(limited);

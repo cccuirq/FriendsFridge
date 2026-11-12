@@ -7,6 +7,7 @@ import { initializeDatabase } from '../../src/db/schema.js';
 import { seedIngredients, ingredients } from '../../database/seeds/ingredients.js';
 import { ingredientRequestRepository } from '../../src/modules/ingredient-requests/repository.js';
 import { recipeRepository } from '../../src/modules/recipes/repository.js';
+import { seedRecipes, samples } from '../../database/seeds/recipes.js';
 
 test('MongoDB validators, indexes, seeds, permissions and transactions', { timeout: 240000 }, async (t) => {
   const replica = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: '8.0.16' } });
@@ -80,4 +81,20 @@ test('MongoDB validators, indexes, seeds, permissions and transactions', { timeo
   await assert.rejects(recipes.deleteOwned(outsider, recipeId), /not owned/);
   await recipes.deleteOwned(owner, recipeId);
   for (const name of ['recipe_ingredients', 'saved_recipes', 'recipe_shares']) assert.equal(await db.collection(name).countDocuments({ recipe_id: recipeId }), 0);
+  await seedRecipes(client, db);
+  const originalRecipes = await db.collection('recipes').find({}).sort({ _id: 1 }).toArray();
+  const originalRows = await db.collection('recipe_ingredients').find({}).sort({ _id: 1 }).toArray();
+  await seedRecipes(client, db);
+  assert.deepEqual(await db.collection('recipes').find({}).sort({ _id: 1 }).toArray(), originalRecipes);
+  assert.deepEqual(await db.collection('recipe_ingredients').find({}).sort({ _id: 1 }).toArray(), originalRows);
+  assert.equal(originalRecipes.length, 10);
+  for (const sample of samples) {
+    const rows = originalRows.filter((row) => row.recipe_id === sample.id);
+    assert.equal(rows.length, sample.items.length);
+    for (const [name, unit, quantity] of sample.items) {
+      const food = await db.collection('ingredients').findOne({ name });
+      assert.equal(food.default_unit, unit);
+      assert.equal(rows.find((row) => row.ingredient_id === food._id).quantity, quantity);
+    }
+  }
 });

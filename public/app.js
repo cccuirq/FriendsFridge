@@ -1,6 +1,8 @@
 import { createRecipesPage } from './js/pages/recipes/recipes.js';
 import { createRecognitionPage } from './js/pages/recognition/recognition.js';
 import { createInventoryPage } from './js/pages/inventory/inventory.js';
+import { invitationPages } from './js/pages/friends/invitations.js';
+import { foodImage } from './js/food-images.js';
 
 const $ = (selector) => document.querySelector(selector);
 const recipesPage = createRecipesPage($('#recipes-page'), { api, measure });
@@ -23,6 +25,10 @@ let searchQuery = '';
 let searchVersion = 0;
 let searchTimer;
 let offsets = {};
+let invitationRefresh;
+const invitationRevisions = {};
+const invitationSignatures = {};
+const invitationManualLoads = {};
 let fridge;
 let selectedIngredient;
 let conversation;
@@ -78,6 +84,11 @@ function showAccount(user) {
   inventoryPage.reset(true);
   currentUser = user;
   offsets = {};
+  invitationRefresh = null;
+  for (const type of Object.keys(listPaths)) {
+    invitationRevisions[type] = (invitationRevisions[type] || 0) + 1;
+    delete invitationSignatures[type];
+  }
   clearTimeout(searchTimer);
   searchVersion++;
   searchQuery = '';
@@ -119,6 +130,7 @@ function showAccount(user) {
     activityStream = new EventSource('/api/friends/conversations/events');
     activityStream.onopen = refreshLive;
     activityStream.onmessage = refreshLive;
+    activityStream.addEventListener('friendships', refreshLive);
   }
 }
 
@@ -428,24 +440,46 @@ function invitationEntry(row, type) {
   return entry(row.user, actions);
 }
 
-async function loadList(type, append = false) {
+async function loadList(type, append = false, preservePages = false) {
   if (!currentUser) return;
-  const version = generation;
-  const offset = append ? offsets[type] + 20 : 0;
-  const path = listPaths[type];
-  const rows = await api(path + (path.includes('?') ? '&' : '?') + 'offset=' + offset);
-  if (version !== generation) return;
-  offsets[type] = offset;
-  const target = $('#' + type + '-list');
-  if (!append) target.replaceChildren();
-  for (const row of rows) target.append(invitationEntry(row, type));
-  emptyList(target, emptyMessages[type]);
-  $('#' + type + '-more').hidden = rows.length < 20;
-  if (type === 'incoming' && !append) {
-    $('#invite-dot').hidden = !rows.length;
-    if (rows.length) $('#invitations-link').setAttribute('aria-label', 'Invites, pending invitations');
-    else $('#invitations-link').removeAttribute('aria-label');
+  const manual = preservePages ? null : {};
+  if (manual) invitationManualLoads[type] = manual;
+  try {
+    const version = generation;
+    const revision = invitationRevisions[type] = (invitationRevisions[type] || 0) + 1;
+    const offset = append ? offsets[type] + 20 : 0;
+    const count = preservePages ? (offsets[type] || 0) + 20 : 20;
+    const path = listPaths[type];
+    const result = await invitationPages(api, path, offset, count, () => version === generation && revision === invitationRevisions[type]);
+    if (!result) return;
+    const { rows, lastOffset, hasMore } = result;
+    offsets[type] = lastOffset;
+    const signature = JSON.stringify(rows);
+    const unchanged = !append && invitationSignatures[type] === signature;
+    invitationSignatures[type] = append ? null : signature;
+    const target = $('#' + type + '-list');
+    if (!unchanged) {
+      if (!append) target.replaceChildren();
+      for (const row of rows) target.append(invitationEntry(row, type));
+    }
+    emptyList(target, emptyMessages[type]);
+    $('#' + type + '-more').hidden = !hasMore;
+    if (type === 'incoming' && !append) {
+      $('#invite-dot').hidden = !rows.length;
+      if (rows.length) $('#invitations-link').setAttribute('aria-label', 'Invites, pending invitations');
+      else $('#invitations-link').removeAttribute('aria-label');
+    }
+  } finally {
+    if (manual && invitationManualLoads[type] === manual) delete invitationManualLoads[type];
   }
+}
+
+function refreshInvitations() {
+  if (!currentUser || invitationRefresh || Object.keys(invitationManualLoads).length) return invitationRefresh;
+  const task = Promise.all(Object.keys(listPaths).map((type) => loadList(type, false, true)));
+  invitationRefresh = task;
+  task.finally(() => { if (invitationRefresh === task) invitationRefresh = null; }).catch(() => {});
+  return task;
 }
 
 function refresh() {
@@ -478,7 +512,7 @@ function ingredientEntry(item) {
   details.append(name, quantity);
   const button = action('Request', () => openRequest(item));
   button.setAttribute('aria-label', 'Request ' + item.ingredient.name);
-  row.append(details, button);
+  row.append(foodImage(item.ingredient), details, button);
   return row;
 }
 
@@ -632,6 +666,7 @@ function refreshOpenConversation(state) {
 
 function refreshLive() {
   if (!currentUser) return;
+  refreshInvitations()?.catch(() => {});
   loadUnread().catch(() => {});
   if (conversation) refreshOpenConversation(conversation);
   if (!$('#friends-page').hidden) loadDirectory().catch(() => {});

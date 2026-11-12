@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Default image preview · Friend's Fridge</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script type="module" src="/js/image-demo.js"></script>
+</head>
+<body>
+  <main class="image-demo">
+    <header class="brand"><a class="wordmark" href="/">Friend's Fridge</a><a class="back-link" href="/#my-fridge">Back to my fridge →</a></header>
+    <section class="image-demo-intro"><p class="eyebrow">DEFAULT IMAGE PREVIEW</p><h1>A fresher look<br>for your fridge.</h1><p>Real ingredient photos, recipe inspiration and a little something to sip.</p><p id="image-status" class="muted" role="status">Loading illustrations…</p></section>
+    <section class="image-filters" aria-label="Filter images"><label>Search ingredients or recipes<input id="image-search" type="search" placeholder="e.g. apple, salmon, mojito" /></label><label>Category<select id="image-category"><option value="">All categories</option><option value="recipes">Recipes &amp; cocktails</option></select></label><p id="filter-status" role="status"></p></section>
+    <section aria-labelledby="food-heading"><h2 id="food-heading">Everyday ingredients</h2><div id="food-gallery" class="image-gallery"></div></section>
+    <section aria-labelledby="bar-heading"><h2 id="bar-heading">From the drinks cabinet</h2><div id="bar-gallery" class="image-gallery"></div></section>
+    <section aria-labelledby="recipe-heading"><h2 id="recipe-heading">On the menu</h2><p class="muted">Example illustrations; a photo may differ from the ingredients in your recipe.</p><div id="recipe-gallery" class="image-gallery image-gallery-meals"></div></section>
+    <section class="card image-fallback-card"><div id="fallback-example"></div><div><h2>A useful fallback</h2><p>No matching photo? A category icon keeps the item recognizable. Broken images fall back automatically, too.</p></div></section>
+    <footer class="image-credits">Images from TheMealDB, TheCocktailDB and Wikimedia Commons. Author, source and license information appears on each card. Educational project preview.</footer>
+    <noscript>Please enable JavaScript to see the image gallery.</noscript>
+  </main>
+</body>
+</html>

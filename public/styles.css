@@ -357,3 +357,41 @@ select:focus-visible { outline: 3px solid #7451b4; outline-offset: 3px; }
   .fridge-note { font-size: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { .fridge-open .fridge-door { animation: none; visibility: hidden; } }
+
+/* Locally cached default photos and their no-image fallback. */
+.food-picture { position: relative; display: inline-grid; flex: none; place-items: center; width: 72px; height: 72px; overflow: hidden; border-radius: 14px; background: #fffdf7; vertical-align: middle; }
+.food-picture img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; }
+.food-picture img.is-loaded { opacity: 1; }
+.food-picture-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-size: 36px; }
+.food-picture-cover { width: 100%; height: 175px; border-radius: 12px; }
+.food-picture-cover .food-picture-fallback { font-size: 56px; }
+.stock-list .stock-row { grid-template-columns: 72px minmax(0, 1fr); }
+.stock-row .food-icon { width: 72px; height: 72px; padding: 5px; background: #fffdf7; }
+.recipe-picture { margin: 0 0 18px; }
+.recipe-picture .food-picture { background: var(--mint); }
+.recipe-picture img { object-fit: cover; }
+.recipe-picture figcaption { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.recipe-picture a, .image-credits a, .image-gallery-card > a { color: inherit; text-underline-offset: 3px; }
+#recipe-illustration .food-picture { height: 260px; }
+.image-credits { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.8; }
+.image-demo .brand { display: flex; justify-content: space-between; flex-wrap: wrap; }
+.image-demo-intro { padding: 40px 0 24px; }
+.image-demo-intro h1 { font-size: clamp(38px, 7vw, 70px); max-width: 700px; margin: 15px 0; }
+.image-demo h2 { margin-top: 30px; }
+.image-gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.image-gallery-card { min-width: 0; padding: 14px; margin: 0; }
+.image-gallery-card h3 { text-transform: capitalize; font-size: 16px; margin: 14px 0 6px; }
+.image-gallery-card > a { font-size: 11px; color: var(--muted); }
+.image-gallery-card .food-picture { background: #fff; }
+.image-gallery-card .dish-picture img { object-fit: cover; }
+.image-fallback-card { margin-top: 30px; display: flex; align-items: center; gap: 25px; }
+.image-fallback-card h2 { margin: 0; }
+.image-fallback-card .food-picture { width: 100px; height: 100px; background: var(--mint); }
+@media (max-width: 720px) { .image-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .image-gallery .food-picture { height: 140px; } .image-fallback-card { align-items: start; gap: 15px; } }
+@media (max-width: 380px) { .image-gallery { grid-template-columns: 1fr; } }
+
+.image-attribution { display: block; color: var(--muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.image-attribution a { color: inherit; text-underline-offset: 2px; }
+.image-filters { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; padding: 20px; background: var(--mint); border: 2px solid var(--ink); border-radius: 12px; }
+.image-filters p { grid-column: 1 / -1; margin: 0; font-size: 13px; }
+@media(max-width: 600px) { .image-filters { grid-template-columns: 1fr; } }

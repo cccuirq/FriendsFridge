@@ -1,3 +1,4 @@
+import { recipeFigure } from '../../food-images.js';
 const plural = (count, label) => `${count} ${label}${count === 1 ? '' : 's'}`;
 const titleCase = (name) => name.charAt(0).toUpperCase() + name.slice(1);
 const endpoint = '/api/recipes';
@@ -51,6 +52,7 @@ export function createRecipesPage(root, { api, measure }) {
     $('#recipe-ingredients').replaceChildren();
     $('#recipe-directions').replaceChildren();
     $('#recipe-description').textContent = '';
+    $('#recipe-illustration').replaceChildren();
     $('#recipe-detail-title').textContent = '';
     shareForm.elements.recipient.replaceChildren();
     form.reset();
@@ -84,6 +86,7 @@ export function createRecipesPage(root, { api, measure }) {
       button.dataset.recipeId = recipe._id;
       button.setAttribute('aria-label', 'View recipe: ' + recipe.title);
       button.addEventListener('click', () => showRecipe(recipe));
+      card.prepend(recipeFigure(recipe));
       return card;
     }));
   }
@@ -101,6 +104,8 @@ export function createRecipesPage(root, { api, measure }) {
     $('#recipe-detail-meta').textContent = plural(recipe.servings, 'serving');
     $('#recipe-description').textContent = recipe.description;
     $('#recipe-description').hidden = !recipe.description;
+    const illustration = $('#recipe-illustration');
+    illustration.replaceChildren(recipeFigure(recipe));
     $('#recipe-ingredients').replaceChildren(...recipe.items.map((item) => {
       const row = document.createElement('li');
       const label = document.createElement('div');

@@ -7,6 +7,11 @@ import { HttpError, json } from './utils/http.js';
 const files = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+  '/image-demo': ['image-demo.html', 'text/html; charset=utf-8'],
+  '/js/image-demo.js': ['js/image-demo.js', 'text/javascript; charset=utf-8'],
+  '/js/food-images.js': ['js/food-images.js', 'text/javascript; charset=utf-8'],
+  '/assets/defaults/manifest.js': ['assets/defaults/manifest.js', 'text/javascript; charset=utf-8'],
+  '/js/pages/friends/invitations.js': ['js/pages/friends/invitations.js', 'text/javascript; charset=utf-8'],
   '/js/pages/inventory/inventory.js': ['js/pages/inventory/inventory.js', 'text/javascript; charset=utf-8'],
   '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
   '/js/pages/recipes/recipes.js': ['js/pages/recipes/recipes.js', 'text/javascript; charset=utf-8'],
@@ -35,9 +40,12 @@ export function createApp(client, db, options) {
         catch { json(response, 503, { status: 'unavailable' }); }
         return;
       }
-      const file = files[url.pathname];
+      const image = /^\/assets\/defaults\/([a-z0-9-]+\.(png|jpg))$/.exec(url.pathname);
+      const file = files[url.pathname] || (image && [`assets/defaults/${image[1]}`, image[2] === 'png' ? 'image/png' : 'image/jpeg']);
       if (!file) throw new HttpError(404, 'NOT_FOUND', 'Not found.');
-      const content = await readFile(new URL(`../public/${file[0]}`, import.meta.url));
+      let content;
+      try { content = await readFile(new URL(`../public/${file[0]}`, import.meta.url)); }
+      catch (error) { if (error.code === 'ENOENT') throw new HttpError(404, 'NOT_FOUND', 'Not found.'); throw error; }
       response.writeHead(200, { 'Content-Type': file[1] }); response.end(content);
     } catch (error) {
       if (response.destroyed || response.writableEnded) return;

@@ -83,11 +83,13 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
     } else if (key === 'POST /api/friends/requests') {
       const body = await readJson(request); fields(body, ['user_id']);
       data = await friends.request(user._id, uuid(body.user_id));
+      events.publishFriendships(data.user_low_id, data.user_high_id);
       json(response, 201, { data }); return true;
     } else if (request.method === 'PATCH' && /^\/api\/friends\/requests\/[^/]+$/.test(path)) {
       const body = await readJson(request); fields(body, ['status']);
       if (!['accepted', 'declined'].includes(body.status)) throw new HttpError(400, 'INVALID_INPUT', 'Status must be accepted or declined.');
       data = await friends.respond(user._id, uuid(path.split('/').pop()), body.status);
+      events.publishFriendships(data.user_low_id, data.user_high_id);
     } else if (key === 'GET /api/friends/conversations') {
       data = await conversations.list(user._id, page(url));
     } else if (key === 'GET /api/friends/conversations/unread') {
@@ -134,7 +136,10 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
       if (!['accepted', 'declined', 'cancelled', 'completed'].includes(body.status)) throw new HttpError(400, 'INVALID_INPUT', 'Invalid request status.');
       data = await ingredients.transition(user._id, uuid(path.split('/').pop()), body.status);
       events.publish(data.requester_id, data.owner_id);
-    } else if (request.method === 'DELETE' && /^\/api\/friends\/[^/]+$/.test(path)) data = await friends.remove(user._id, uuid(path.split('/').pop()));
+    } else if (request.method === 'DELETE' && /^\/api\/friends\/[^/]+$/.test(path)) {
+      data = await friends.remove(user._id, uuid(path.split('/').pop()));
+      events.publishFriendships(data.user_low_id, data.user_high_id);
+    }
     else throw new HttpError(404, 'NOT_FOUND', 'Endpoint not found.');
     json(response, 200, { data }); return true;
   };

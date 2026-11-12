@@ -1,4 +1,4 @@
-const foodIcons = { fruit: '🍎', vegetable: '🥕', dairy: '🥛', protein: '🥚', grain: '🌾', pantry: '🫙', drink: '🧃' };
+import { foodImage } from '../../food-images.js';
 
 function scaled(value, minimum) {
   if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new Error('Enter a quantity with up to two decimal places.');
@@ -59,7 +59,7 @@ export function createInventoryPage(root, { api, measure }) {
     $('[data-stock-empty]').hidden = Boolean(items.length);
     $('[data-stock]').replaceChildren(...items.map((item) => {
       const row = document.createElement('li'); row.className = 'stock-row';
-      const icon = document.createElement('span'); icon.className = 'food-icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = foodIcons[item.ingredient.category] || '🥣';
+      const icon = foodImage(item.ingredient); icon.classList.add('food-icon'); icon.setAttribute('aria-hidden', 'true');
       const details = document.createElement('div'); details.className = 'stock-details';
       const name = document.createElement('strong'); name.className = 'ingredient-name'; name.textContent = item.ingredient.name;
       const amount = document.createElement('span'); amount.className = 'muted'; amount.textContent = item.quantity ? measure(item.quantity, item.ingredient.default_unit) : 'Out of stock';
