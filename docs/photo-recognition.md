@@ -9,8 +9,8 @@
 - 数据库：MongoDB 官方驱动、严格 collection validators、UUID 字符串、单节点 replica set 支持事务。
 - 登录：HttpOnly / SameSite=Strict cookie，服务端会话认证。新增接口复用已有认证与跨来源检查。
 - 已有功能：账号与个人资料、好友邀请、共享库存查看、实时消息、食材请求与交接扣库存、食谱推荐/创建/收藏/分享。
-- 开发前 `My Fridge` 只有 Coming soon，个人库存增删改 API 尚未实现；仓库没有上传或 AI 代码。
-- 本次只补充库存读取和批量添加适配器、My Fridge 只读列表。完整编辑、删除、共享权限设置仍交给 Inventory 组员。
+- 2026-11-16 已同步组员的库存增删改、共享权限和冰箱展示页面；Photo Recognition 直接使用组员的 `/api/ingredients` 词典和同一份库存。
+- 识别模块保留事务批量添加适配器，不重写组员的库存管理功能。周二演示步骤见 [Presentation 指南](photo-recognition-presentation.md)。
 
 ## 2. 首次安装（Windows PowerShell）
 
@@ -26,9 +26,9 @@ python -m venv .venv
 
 如 `python` 不可用，先安装 Python 3.11；安装了 Python Launcher 的电脑也可用 `py -3.11 -m venv .venv`。不必激活虚拟环境，因此不需要修改 PowerShell 执行策略。安装过程可能需要数分钟和较大的下载空间：PyTorch、首次 MongoDB 下载及约 338 MiB 的 CLIP 编码器均需下载。
 
-`setup_model.py` 默认从 Ultralytics 官方 release 下载 `yolov8l-worldv2.pt`，用 CLIP 编码共享清单中的 204 类，然后保存离线词汇模型 `services/recognition/.cache/ingredients-worldv2-l.pt`。正常启动不下载权重、不加载 CLIP 编码器；清单与权重不匹配时明确报错，防止标签错位。修改 `shared/recognition-ingredients.json` 后重新运行准备脚本、`npm run db:seed` 并重启 Python 和 Node 服务。
+`setup_model.py` 默认下载官方 `yolov8l-worldv2.pt`，编码 204 个食材提示词以及 bowl、paper bag 两个容器提示词，保存为 `services/recognition/.cache/ingredients-reviewed-worldv2-l.pt`。运行时加载本地 CLIP ViT-B/32，对检测框裁剪做保守的名称复核；它只提供待确认建议，不会直接入库。CLIP 权重由准备脚本缓存到 `.cache/clip/ViT-B-32.pt`，启动和识别时不下载。旧版使用者也需要重新运行准备脚本。清单与权重不匹配会报错，防止标签错位。修改共享清单后重新运行准备脚本、`npm run db:seed` 并重启 Python 和 Node。
 
-慢速电脑可以运行 `setup_model.py --size s`，然后设置 `$env:YOLO_MODEL_PATH="D:\FriendsFridge\services\recognition\.cache\ingredients-worldv2-s.pt"`。本次 demo 使用 Large（离线词汇权重约 94.5 MB）：在同批混合果蔬照片中恢复了葡萄检测，但甜椒/番茄互相误标，大蒜、肉类等仍不可靠；没有整体准确率提升的结论。可使用 `--size m` 准备 medium，再把 `YOLO_MODEL_PATH` 指向对应的 `ingredients-worldv2-m.pt`。
+慢速电脑可运行 `setup_model.py --size s`，然后设置 `$env:YOLO_MODEL_PATH="D:\FriendsFridge\services\recognition\.cache\ingredients-reviewed-worldv2-s.pt"`；也支持 `--size m` 和相应的 `ingredients-reviewed-worldv2-m.pt`。本次 demo 使用 Large。对照中 Extra Large 在鸡蛋照片和演示图上并未更好，因此没有采用。糖、盐、面粉等外观相近物体仍须人工确认；没有整体准确率提升的结论。
 
 模型及 `.venv`、测试照片、上传测试输出不应提交到 Git，已配置忽略规则。准备脚本使用 `truststore` 的系统证书，保持 HTTPS 验证；不要通过关闭证书校验解决下载问题。`setuptools==80.9.0` 是为了兼容 CLIP 的 `pkg_resources` 导入。
 
@@ -42,7 +42,7 @@ python -m venv .venv
 npm run db:local
 ```
 
-这个原有命令会启动本机 MongoDB replica set，自动初始化并补齐 206 个食材词典项（204 类视觉候选和 2 个原有词典项）和示例食谱，数据保存在 `.local/mongodb/`。不要与其他占用 27017 端口的 MongoDB 同时启动。
+这个原有命令会启动本机 MongoDB replica set，自动初始化并补齐共享食材词典和示例食谱；本次与组员代码同步后是 212 个词典项，其中 204 项为视觉候选。数据保存在 `.local/mongodb/`。不要与其他占用 27017 端口的 MongoDB 同时启动。
 
 **终端 B：Python 模型服务**
 
@@ -68,7 +68,7 @@ npm start
 
 1. 选择 JPG/JPEG/PNG，最大 10 MiB、20 百万像素。页面显示本地预览。
 2. 点击 **Recognize Ingredients**。加载期间控件禁用，失败可重试；成功后用 Start New Photo 开始下一次，避免重新识别覆盖修改。
-3. 框和置信度是原始模型输出。列表按模型类别合并；置信度取该类别最高值，数量建议是检测框数量，不代表准确物体数。
+3. 框位置来自 YOLO。CLIP 复核改名的框标记 `review`，不挪用旧类别的置信度；列表显示改名前来源并要求确认。未改名框显示 YOLO 分数，列表取同类有效分数最高值。数量建议是框数，不代表准确物体数。装有已检测食材的容器不再额外计数。
 4. 修改名称、删除误报、手动补充漏检。名称必须匹配共享食材词典；不会偷偷创建新的字典项。
 5. 单位为 `piece` 的食材提供可修改的计数建议；`g`、`ml` 留空，必须人工填写。模型服务把提示词 `milk carton` 映射为词典中的 `milk`，不是把一盒当作 1 ml。
 6. 点击 **Confirm and Add to Fridge** 才保存。重复食材在同一批次合并；同一食材已有库存时增加数量。
@@ -81,8 +81,8 @@ npm start
 ```text
 浏览器图片文件
   → POST /api/recognition（Node：验证会话、类型、大小）
-  → POST http://127.0.0.1:8001/recognize（Python：解码、EXIF 方向、YOLO）
-  → JSON：名称、confidence、像素 xyxy 框、原图宽高
+  → POST http://127.0.0.1:8001/recognize（Python：解码、EXIF、YOLO、局部 CLIP 复核）
+  → JSON：名称、nullable confidence、复核来源、像素 xyxy 框、原图宽高
   → 浏览器 canvas 与人工编辑草稿
   → POST /api/inventory/imports（确认后的 ingredient_id 和 quantity）
   → MongoDB 事务：inventory_items + inventory_imports
@@ -102,8 +102,7 @@ npm start
 - 双击/网络重试必须复用相同 `batch_id` 和 payload。已提交同一批次返回 `replayed: true`；同一个 ID 内容不同返回 409。
 - 前端遇到结果不明确的错误会锁住该批次，并提供 **Retry Same Confirmation**；不会自行创建新 ID 再次添加。
 - 这是按提交编号的防重复，不是按照片去重：用户开始新批次并再次上传同一照片仍会增加库存。不要用它反复扫描已有库存来“同步总量”。
-- Inventory 组员可直接接管 `src/modules/inventory/repository.js`，保留批量添加契约和事务去重逻辑；不必让 Photo Recognition 直接操作数据库。
-- 若组员已经另行完成库存路由，合并时可把 `/api/inventory*` 的分发从 recognition 路由移到 inventory 路由，前端 API 不用改变。
+- 最新组员代码已提供 `src/modules/inventory/routes.js`、库存 CRUD 和正式 My Fridge 页面。识别页面读取同一 `/api/ingredients`，确认后经已有 `/api/inventory/imports` 使用同一 repository 写入；没有改数据库结构或另建食材表。
 - Python 和 Node 共用 `shared/recognition-ingredients.json` 的名称、提示词、类别、单位；seed 只追加不存在的条目，不覆盖原有 UUID 或单位。204 类覆盖常见果蔬、肉蛋海鲜、豆制品、乳制品、谷物面食、坚果、香草和调料，包括白菜、青江菜、莲藕、芋头、三文鱼、虾蟹、米粉和酱油等。请与 Inventory 组员一起审阅默认单位。
 
 ## 7. 测试与真实输出
@@ -122,10 +121,11 @@ npm test
 
 | 文件 | 用途 |
 | --- | --- |
-| `public/js/pages/recognition/recognition.js` | 上传预览、框、人工编辑、防重复 UI、只读库存展示 |
+| `public/js/pages/recognition/recognition.js` | 上传预览、框、人工编辑、防重复 UI；正式库存页面由 inventory 模块负责 |
 | `public/index.html`、`public/styles.css`、`public/app.js` | 页面模板、现有样式补充、导航和文件请求支持 |
 | `shared/recognition-ingredients.json`、`.js` | 204 类识别与库存映射的共享清单及 Node 读取模块 |
 | `services/recognition/app.py` | FastAPI、校验、内存图片解码、模型加载和推理 |
+| `services/recognition/verification.py`、`test_verification.py` | 本地裁剪复核、容器去重、保守阈值及规则测试 |
 | `services/recognition/setup_model.py` | 下载官方权重、准备离线词汇模型、验证加载 |
 | `services/recognition/requirements.txt` | 核心兼容依赖版本 |
 | `services/recognition/requirements-lock-windows.txt` | 本次实测 Windows Python 3.11 完整依赖快照 |
@@ -141,10 +141,10 @@ npm test
 ## 9. 11 月 17 日前建议完成
 
 1. 用小组自己拍的冰箱、桌面食材照片补测演示要使用的类别，记录成功和失败例，尤其鸡蛋、牛奶盒、蔬菜。
-2. 与 Inventory 组员确认词典单位和批量添加接口归属，避免并行实现同一路由。
+2. 组员最新库存页面已对接；在演示账号中确认初始库存，避免把重复演练的增量误认为识别数量。
 3. 在演示电脑提前运行模型准备脚本、启动三项服务并预演，确保现场不依赖大文件下载。
 4. 准备一张识别较好的完整水果照片和一张误识别照片，演示人工纠错；不要把检测框数包装成精确数量。
 
-尚未实现 Receipt Recognition、自训练、重量估计、保质期识别、云部署以及完整个人库存编辑。本次没有评估全部 204 类的准确率，也没有开展生产环境负载或跨平台测试。
+尚未实现 Receipt Recognition、自训练、重量估计、保质期识别和云部署。本次没有评估全部 204 类的准确率，也没有开展生产环境负载或跨平台测试。
 
 模型参考：[Ultralytics YOLO-World 官方文档](https://docs.ultralytics.com/models/yolo-world/)。使用 Large v2 支持自定义词汇、CPU 推理和离线词汇保存。本地真实对照测试决定从 medium 升级到 Large；七张样例不能作为整体准确率结论。

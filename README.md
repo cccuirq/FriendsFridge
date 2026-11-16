@@ -23,6 +23,8 @@ After sign-in, **My Fridge** opens an illustrated refrigerator with your saved s
 
 For Photo Recognition, follow the [setup, testing and Inventory integration guide](docs/photo-recognition.md). It requires a separate Python 3.11 environment and local model service; the existing app still runs when that service is stopped, and manual ingredient entry remains available.
 
+The [November 17 presentation guide](docs/photo-recognition-presentation.md) covers the four-ingredient demo, manual corrections, and the distinction between the generated demo image and real-photo validation.
+
 ## Run locally
 
 Requires Node.js 22 or newer. From the project directory, install dependencies and start the local MongoDB replica set. This also initializes the database and seeds ingredients and sample recipes.

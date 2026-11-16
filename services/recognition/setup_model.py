@@ -33,9 +33,9 @@ def main():
     print(f"Encoding {len(CLASSES)} ingredient prompts...", flush=True)
     model = YOLOWorld(str(source))
     model.set_classes(CLASSES)
-    # Keep embedded text features; normal startup does not need the CLIP encoder.
+    # Keep text features in YOLO. The review stage separately loads local CLIP weights.
     model.model.clip_model = None
-    prepared = CACHE / f"ingredients-worldv2-{args.size}.pt"
+    prepared = CACHE / f"ingredients-reviewed-worldv2-{args.size}.pt"
     temporary = prepared.with_name(f"preparing-{prepared.name}")
     model.save(str(temporary))
     verified = Detector()

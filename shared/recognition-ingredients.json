@@ -192,7 +192,7 @@
   {"name": "seaweed", "prompt": "seaweed", "category": "pantry", "default_unit": "g"},
   {"name": "nori", "prompt": "nori", "category": "pantry", "default_unit": "g"},
   {"name": "flour", "prompt": "bag of flour", "category": "pantry", "default_unit": "g"},
-  {"name": "sugar", "prompt": "bag of sugar", "category": "pantry", "default_unit": "g"},
+  {"name": "sugar", "prompt": "bag of sugar", "category": "pantry", "default_unit": "g", "verification_prompts": ["white granulated sugar", "a bowl of sugar"]},
   {"name": "salt", "prompt": "salt container", "category": "pantry", "default_unit": "g"},
   {"name": "olive oil", "prompt": "olive oil bottle", "category": "pantry", "default_unit": "ml"},
   {"name": "soy sauce", "prompt": "soy sauce bottle", "category": "pantry", "default_unit": "ml"},

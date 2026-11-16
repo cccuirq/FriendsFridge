@@ -12,6 +12,7 @@ import warnings
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
+from verification import IngredientVerifier, REGION_CLASSES
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache"
@@ -22,11 +23,11 @@ os.environ.setdefault("TORCH_HOME", str(CACHE / "torch"))
 MAX_BYTES = 10 * 1024 * 1024
 Image.MAX_IMAGE_PIXELS = 20_000_000
 INGREDIENTS = json.loads((ROOT.parents[1] / "shared" / "recognition-ingredients.json").read_text(encoding="utf-8"))
-CLASSES = [item["prompt"] for item in INGREDIENTS]
-NAMES = [item["name"] for item in INGREDIENTS]
+CLASSES = [item["prompt"] for item in INGREDIENTS] + REGION_CLASSES
+NAMES = [item["name"] for item in INGREDIENTS] + REGION_CLASSES
 if len(set(CLASSES)) != len(CLASSES) or len(set(NAMES)) != len(NAMES):
     raise ValueError("Recognition names and prompts must be unique")
-MODEL_PATH = Path(os.environ.get("YOLO_MODEL_PATH", str(CACHE / "ingredients-worldv2-l.pt")))
+MODEL_PATH = Path(os.environ.get("YOLO_MODEL_PATH", str(CACHE / "ingredients-reviewed-worldv2-l.pt")))
 DEVICE = os.environ.get("YOLO_DEVICE", "cpu")
 logger = logging.getLogger("recognition")
 
@@ -34,6 +35,7 @@ logger = logging.getLogger("recognition")
 class Detector:
     def __init__(self):
         self.model = None
+        self.verifier = None
         self.lock = threading.Lock()
 
     def load(self, model_path=MODEL_PATH):
@@ -45,6 +47,9 @@ class Detector:
         if list(model.names.values()) != CLASSES:
             raise ValueError("Prepared vocabulary is outdated. Run setup_model.py and restart.")
         model.predict(Image.new("RGB", (640, 640)), device=DEVICE, verbose=False)
+        verifier = IngredientVerifier()
+        verifier.load(CACHE, INGREDIENTS, DEVICE)
+        self.verifier = verifier
         self.model = model
 
     def predict(self, image):
@@ -52,10 +57,11 @@ class Detector:
             raise RuntimeError("Model unavailable")
         result = self.model.predict(image, conf=0.45, iou=0.5, imgsz=640,
                                     agnostic_nms=True, max_det=50, device=DEVICE, verbose=False)[0]
-        return [{"name": NAMES[int(box.cls.item())],
+        proposals = [{"name": NAMES[int(box.cls.item())],
                  "confidence": round(float(box.conf.item()), 4),
                  "box": [round(float(value), 2) for value in box.xyxy[0].tolist()]}
                 for box in result.boxes]
+        return self.verifier.review(image, proposals)
 
 
 detector = Detector()
@@ -94,7 +100,7 @@ def decode_image(data, content_type):
 @app.get("/health")
 async def health():
     ready = detector.model is not None
-    return JSONResponse(status_code=200 if ready else 503, content={"status": "ready" if ready else "unavailable", "model": MODEL_PATH.name, "device": DEVICE, "class_count": len(NAMES)})
+    return JSONResponse(status_code=200 if ready else 503, content={"status": "ready" if ready else "unavailable", "model": MODEL_PATH.name, "device": DEVICE, "class_count": len(INGREDIENTS), "label_review": "local-clip"})
 
 
 @app.post("/recognize")

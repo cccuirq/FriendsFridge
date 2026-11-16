@@ -1,6 +1,29 @@
 # Photo Recognition 测试记录
 
-## 最新结果：204 类 + YOLO-World Large
+## 最新结果：2026-11-16，Large + 本地 CLIP 复核
+
+已同步组员 `main` 的 `d6ba1b1`，复用 `/api/ingredients` 的同一套 212 项词典和新版库存页面。模型使用 `ingredients-reviewed-worldv2-l.pt`，204 食材候选加 bowl/paper bag 区域提议，640px、conf=0.45；CLIP ViT-B/32 对裁剪给出保守待确认建议。改名候选的 `confidence` 为 null，旧检测分数单独保存，不伪造新类别置信度。
+
+Node 全项目 **31 项通过**；Python **6 项通过**（含异常处理和复核决策规则，规则测试使用明确的合成分数，不作为准确率证据）。实际已认证 HTTP 测试覆盖 7 张真实照片及 1 张生成演示图；空白图返回空列表，识别前后库存不变，所有返回名称均能映射到共享词典。
+
+浏览器完整流程已验证：上传和预览生成演示图，真实推理得到四行，banana 从 1 改为 4、sugar 手填 500 g，删除 apple 后手动补回 3 个，点击确认后显示保存成功。打开组员 My Fridge 并刷新，显示 apple 3、egg 8、sugar 500 g；banana 原有 1 加本次 4 后为 5，其他已有库存保持不变。截图在 `.local/recognition-tests/presentation-recognition-browser.jpg` 和 `presentation-inventory-browser.jpg`。本次新增流程没有使用模拟库存。
+
+| 图片 | 实际返回的类别与框数 | 单次 HTTP 秒数 |
+| --- | --- | --- |
+| AI 生成演示图（不计入真实照片准确率） | egg 8、sugar 2、banana 1、apple 3 | 1.26 |
+| 01-apples-bananas.jpg | apple 5、banana 1、错误 orange 1 | 0.98 |
+| 02-mixed-produce.jpg | grapes 1、orange 1、apple 1、bell pepper 1、tomato 1；仍有误标 | 0.81 |
+| 03-whole-vegetables.jpg | carrot 15、shallot 1、cucumber 2、zucchini 1、parsnip 1、leek 1、apricot 1；仍有误报 | 1.35 |
+| 04-chicken-thighs.jpg | 无检测，仍漏检 | 0.52 |
+| 05-carrot-basket.jpg | carrot 8，重叠计数仍需核对 | 0.76 |
+| 08-real-sugar.jpg | sugar 候选 1；原模型未检出 | 0.72 |
+| 09-real-eggs.jpg | egg 5、错误 orange 1；原模型 6 个均误标 orange | 0.71 |
+
+时间为本机单次实测，非性能基准。原始 JSON 保存在被 Git 忽略的 `.local/recognition-tests/presentation-reviewed-http.json`。照片来源、生成图声明和操作步骤见 [Presentation 指南](photo-recognition-presentation.md)。糖候选仍可能与盐、面粉混淆，不能宣称全部 204 类可靠，也不报告整体准确率。
+
+对照文件同目录：`resolution-comparison.json`、`prompt-comparison.json`、`alias-comparison.json`、`xl-comparison.json`。更大分辨率、提示词变体、Extra Large 没有稳定改善鸡蛋与演示图，未采用。复核采用同一词表和通用阈值，不按文件名、固定坐标或预设结果识别。
+
+## 历史结果：2026-11-11，204 类 + YOLO-World Large
 
 2026-11-11：已移除页面上的类别说明区；共享词表扩展到 204 类，库存词典补齐 206 项。默认模型为官方 `yolov8l-worldv2.pt`，保存的离线词汇模型 `ingredients-worldv2-l.pt` 约 94.5 MB。CPU，640px，conf=0.45，IoU=0.5，class-agnostic NMS。未训练模型，也没有模拟识别结果。
 

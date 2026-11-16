@@ -41,6 +41,9 @@ test('Photo recognition proxy and shared inventory confirmation', { timeout: 240
   const register = (name) => request('/api/auth/register', 'POST', { username: name, display_name: name, email: `${name}@example.com`, password: 'recognition-test-password' });
   const alice = await register('photo_alice'); const bob = await register('photo_bob');
   const ingredients = (await request('/api/recognition/ingredients', 'GET', undefined, alice.cookie)).body.data;
+  const sharedIngredients = (await request('/api/ingredients', 'GET', undefined, alice.cookie)).body.data;
+  assert.deepEqual(sharedIngredients.map(({ _id, name, default_unit }) => ({ _id, name, default_unit })),
+    ingredients.map(({ _id, name, default_unit }) => ({ _id, name, default_unit })));
   const egg = ingredients.find((item) => item.name === 'egg');
   assert.equal(ingredients.length, seededIngredients.length);
   assert.equal(new Set(recognitionIngredients.map((item) => item.name)).size, recognitionIngredients.length);

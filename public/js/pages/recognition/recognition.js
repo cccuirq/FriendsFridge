@@ -40,7 +40,7 @@ export function createRecognitionPage(root, { api }) {
       const [x1, y1, x2, y2] = detection.box.map((n) => n * scale);
       ctx.strokeStyle = '#ffdc72';
       ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-      const label = `${detection.name} ${Math.round(detection.confidence * 100)}%`;
+      const label = detection.confidence == null ? `${detection.name} · review` : `${detection.name} ${Math.round(detection.confidence * 100)}%`;
       const labelY = Math.max(0, y1 - 25);
       ctx.fillStyle = '#28221d';
       ctx.fillRect(x1, labelY, ctx.measureText(label).width + 12, 25);
@@ -67,7 +67,9 @@ export function createRecognitionPage(root, { api }) {
         updateUnit();
       });
       quantity.addEventListener('input', () => { row.quantity = quantity.value; });
-      node.querySelector('[data-confidence]').textContent = row.confidence == null ? 'Manually added' : `Original model suggestion: ${row.originalName} · ${Math.round(row.confidence * 100)}% highest confidence · ${row.count} detection(s)${row.needsReview ? ' · Includes uncertain detections: check carefully' : ''}`;
+      const reviewNote = row.reviewedFrom?.length ? ` · Visual check suggested ${row.originalName} from ${row.reviewedFrom.join(', ')}; confirm the name` : '';
+      node.querySelector('[data-confidence]').textContent = row.count == null ? 'Manually added'
+        : `${row.confidence == null ? 'Name suggested by visual check' : `Original model suggestion: ${row.originalName} · ${Math.round(row.confidence * 100)}% highest detection confidence`} · ${row.count} detection(s)${reviewNote}${row.needsReview ? ' · Check names and counts carefully' : ''}`;
       node.querySelector('button').addEventListener('click', () => { rows.splice(index, 1); renderRows(); });
       $('[data-rows]').append(node);
     });
@@ -89,7 +91,7 @@ export function createRecognitionPage(root, { api }) {
   async function loadCatalog() {
     const current = version;
     try {
-      const result = await api('/api/recognition/ingredients');
+      const result = await api('/api/ingredients');
       if (current !== version) return;
       catalog = result;
       $('[data-catalog]').replaceChildren(...catalog.map((item) => {
@@ -134,15 +136,17 @@ export function createRecognitionPage(root, { api }) {
       const grouped = new Map();
       for (const detection of detections) {
         const name = detection.name;
-        const row = grouped.get(name) || { name, originalName: detection.name, count: 0, confidence: 0, quantity: '' };
-        row.count++; row.confidence = Math.max(row.confidence, detection.confidence);
-        row.needsReview ||= detection.confidence < 0.5;
+        const row = grouped.get(name) || { name, originalName: detection.name, count: 0, confidence: null, quantity: '', reviewedFrom: [] };
+        row.count++;
+        if (typeof detection.confidence === 'number') row.confidence = Math.max(row.confidence ?? 0, detection.confidence);
+        if (detection.review_required && !row.reviewedFrom.includes(detection.detector_name)) row.reviewedFrom.push(detection.detector_name);
+        row.needsReview ||= detection.review_required || detection.confidence < 0.5;
         grouped.set(name, row);
       }
       rows = [...grouped.values()];
       rows.forEach((row) => { if (ingredient(row.name)?.default_unit === 'piece') row.quantity = String(row.count); });
       draw(); renderRows();
-      status(detections.length ? `${detections.length} model detection(s). Review every ingredient and enter quantities in the displayed units. Boxes show the original model output.` : 'No ingredients detected. Try a clearer photo or add ingredients manually.');
+      status(detections.length ? `${detections.length} model detection(s). Review every ingredient and enter quantities in the displayed units. Boxes show model suggestions; labels marked “review” need confirmation.` : 'No ingredients detected. Try a clearer photo or add ingredients manually.');
     } catch (error) { if (current === version) status(error.message); }
     finally { if (current === version) { busy = false; controls(); } }
   });
