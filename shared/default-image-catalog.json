@@ -1561,6 +1561,17 @@
       "provider": "TheCocktailDB",
       "source_id": "11000",
       "kind": "drink"
+    },
+    {
+      "key": "tomato and egg stir-fry",
+      "name": "Tomato and Egg Stir-Fry",
+      "kind": "recipe",
+      "provider": "Wikimedia Commons",
+      "url": "https://live.staticflickr.com/65535/54092966601_4e497653ed_o.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File:MyPlate_gov_Cultural_Food_(20241025-USDA-FNS-UNK-0083).jpg",
+      "author": "USDAgov",
+      "license": "Public domain",
+      "license_url": "https://commons.wikimedia.org/wiki/Template:PD-USGov-USDA"
     }
   ]
 }

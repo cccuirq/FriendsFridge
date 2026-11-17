@@ -108,6 +108,8 @@ def recipe_image(row):
     old = existing.get((row['kind'], row['key']))
     if old:
         return old
+    if row.get('url'):
+        return dict(row)
     meal = row['provider'] == 'TheMealDB'
     host = 'www.themealdb.com' if meal else 'www.thecocktaildb.com'
     data = json.loads(fetch(f"https://{host}/api/json/v1/1/lookup.php?i={row['source_id']}"))['meals' if meal else 'drinks'][0]

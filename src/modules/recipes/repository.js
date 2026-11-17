@@ -50,7 +50,7 @@ export function recipeRepository(client, db) {
           { author_id: actorId }, { visibility: 'public' },
           { visibility: 'friends', author_id: { $in: friendIds } },
           { _id: { $in: [...sharedBy.keys()] }, author_id: { $in: friendIds } },
-        ] }).toArray(),
+        ] }, { projection: { 'image.data': 0 } }).toArray(),
         users.find({ _id: { $in: friendIds } }, publicFields).sort({ display_name: 1, _id: 1 }).toArray(),
       ]);
       const visible = rows.filter((recipe) => recipe.author_id === actorId || recipe.visibility === 'public' ||
@@ -72,6 +72,7 @@ export function recipeRepository(client, db) {
         return {
           _id: recipe._id, title: recipe.title, description: recipe.description, servings: recipe.servings,
           instructions: recipe.instructions, items: recipeItems,
+          ...(recipe.image ? { image_url: `/api/recipes/${recipe._id}/image` } : {}),
           missing_count: recipeItems.filter((row) => row.missing > 0).length,
           owned: recipe.author_id === actorId, saved: savedIds.has(recipe._id),
           shared: sharedBy.get(recipe._id) === recipe.author_id,
@@ -80,6 +81,12 @@ export function recipeRepository(client, db) {
         a.missing_count / Math.max(1, a.items.length) - b.missing_count / Math.max(1, b.items.length) ||
         a.title.localeCompare(b.title) || a._id.localeCompare(b._id));
       return { recipes: result, ingredients: dictionary, friends };
+    },
+
+    async image(actorId, recipeId) {
+      const recipe = await recipes.findOne({ _id: recipeId });
+      if (!await canView(recipe, actorId) || !recipe.image) throw notFound();
+      return { content_type: recipe.image.content_type, data: Buffer.from(recipe.image.data.buffer) };
     },
 
     async create(actorId, data) {
@@ -94,6 +101,23 @@ export function recipeRepository(client, db) {
         await recipes.insertOne({ _id, ...details, author_id: actorId, visibility: 'private', created_at: now, updated_at: now }, { session });
         await items.insertMany(rows.map((row) => ({ _id: randomUUID(), recipe_id: _id, ...row, created_at: now })), { session });
         return { _id };
+      });
+    },
+
+    async updateOwned(actorId, recipeId, data) {
+      return inTransaction(client, async (session) => {
+        if (!await recipes.findOne({ _id: recipeId, author_id: actorId }, { session, projection: { _id: 1 } })) throw notFound();
+        const { items: rows, image, ...details } = data;
+        const ingredientIds = rows.map((row) => row.ingredient_id);
+        if (await ingredients.countDocuments({ _id: { $in: ingredientIds } }, { session }) !== ingredientIds.length) {
+          throw new HttpError(400, 'INVALID_INGREDIENT', 'Choose ingredients from the fridge ingredient list.');
+        }
+        const now = new Date();
+        const update = { $set: { ...details, updated_at: now, ...(image ? { image } : {}) }, ...(image === null ? { $unset: { image: '' } } : {}) };
+        await recipes.updateOne({ _id: recipeId, author_id: actorId }, update, { session });
+        await items.deleteMany({ recipe_id: recipeId }, { session });
+        await items.insertMany(rows.map((row) => ({ _id: randomUUID(), recipe_id: recipeId, ...row, created_at: now })), { session });
+        return { _id: recipeId };
       });
     },
 
@@ -136,7 +160,7 @@ export function recipeRepository(client, db) {
     async deleteOwned(actorId, recipeId) {
       return inTransaction(client, async (session) => {
         const deleted = await db.collection('recipes').deleteOne({ _id: recipeId, author_id: actorId }, { session });
-        if (!deleted.deletedCount) throw new Error('Recipe not found or not owned');
+        if (!deleted.deletedCount) throw new HttpError(404, 'RECIPE_NOT_FOUND', 'Recipe not found or not owned');
         for (const name of ['recipe_ingredients', 'saved_recipes', 'recipe_shares']) {
           await db.collection(name).deleteMany({ recipe_id: recipeId }, { session });
         }

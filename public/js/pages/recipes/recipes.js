@@ -32,11 +32,69 @@ export function createRecipesPage(root, { api, measure }) {
   const status = $('#recipe-status');
   const detailStatus = $('#recipe-action-status');
   const formStatus = $('#recipe-form-status');
+  const photo = $('#recipe-photo');
+  const photoPreview = $('#recipe-photo-preview');
+  let photoUrl;
+  let photoVersion = 0;
   let version = 0;
   let data;
   let selected;
   let filter = 'all';
   let busy = false;
+  let editing;
+  let removeImage = false;
+
+  function showExistingPhoto() {
+    if (editing?.image_url && !removeImage) {
+      photoPreview.src = editing.image_url;
+      photoPreview.hidden = false;
+      $('#recipe-photo-name').textContent = 'Current photo';
+      $('#recipe-photo-remove').hidden = false;
+    }
+  }
+
+  function clearPhoto() {
+    photoVersion++;
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    photoUrl = undefined;
+    photo.value = '';
+    photo.setCustomValidity('');
+    photoPreview.removeAttribute('src');
+    photoPreview.hidden = true;
+    $('#recipe-photo-remove').hidden = true;
+    $('#recipe-photo-name').textContent = 'No file chosen';
+  }
+
+  photo.addEventListener('change', async () => {
+    const file = photo.files[0];
+    const token = ++photoVersion;
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    photoUrl = undefined;
+    photoPreview.hidden = true;
+    photoPreview.removeAttribute('src');
+    $('#recipe-photo-name').textContent = file?.name || 'No file chosen';
+    $('#recipe-photo-remove').hidden = !file;
+    formStatus.textContent = '';
+    if (!file) { showExistingPhoto(); return; }
+    try {
+      if (!['image/jpeg', 'image/png'].includes(file.type) || !/\.(jpe?g|png)$/i.test(file.name)) throw new Error('Choose a JPG or PNG image.');
+      if (!file.size || file.size > 2 * 1024 * 1024) throw new Error('Choose a non-empty image no larger than 2 MB.');
+      const bitmap = await createImageBitmap(file);
+      const pixels = bitmap.width * bitmap.height;
+      bitmap.close();
+      if (pixels > 20_000_000) throw new Error('Choose an image up to 20 megapixels.');
+      if (token !== photoVersion) return;
+      photoUrl = URL.createObjectURL(file);
+      photoPreview.src = photoUrl;
+      photoPreview.hidden = false;
+    } catch (error) {
+      if (token !== photoVersion) return;
+      clearPhoto();
+      showExistingPhoto();
+      formStatus.textContent = error.message || 'Cannot read this image. Choose a valid JPG or PNG.';
+    }
+  });
+  $('#recipe-photo-remove').addEventListener('click', () => { clearPhoto(); removeImage = true; formStatus.textContent = ''; });
 
   function show(panel) {
     for (const section of [browse, detail, editor]) section.hidden = section !== panel;
@@ -46,6 +104,8 @@ export function createRecipesPage(root, { api, measure }) {
   function reset() {
     version++;
     data = selected = undefined;
+    editing = undefined;
+    removeImage = false;
     filter = 'all';
     busy = false;
     results.replaceChildren();
@@ -56,9 +116,11 @@ export function createRecipesPage(root, { api, measure }) {
     $('#recipe-detail-title').textContent = '';
     shareForm.elements.recipient.replaceChildren();
     form.reset();
+    clearPhoto();
     $('#recipe-input-items').replaceChildren();
     detailStatus.textContent = formStatus.textContent = status.textContent = '';
-    for (const button of [save, shareForm.querySelector('button'), form.querySelector('[type=submit]')]) button.disabled = false;
+    for (const button of [save, $('#recipe-delete-yes'), shareForm.querySelector('button'), form.querySelector('[type=submit]')]) button.disabled = false;
+    $('#recipe-delete-confirm').hidden = true;
     retry.hidden = true;
     create.disabled = true;
     show(browse);
@@ -98,6 +160,8 @@ export function createRecipesPage(root, { api, measure }) {
 
   function showRecipe(recipe) {
     selected = recipe;
+    $('#recipe-owner-actions').hidden = !recipe.owned;
+    $('#recipe-delete-confirm').hidden = true;
     show(detail);
     const title = $('#recipe-detail-title');
     title.textContent = recipe.title;
@@ -170,13 +234,18 @@ export function createRecipesPage(root, { api, measure }) {
     }
   }
 
-  function addItem(focus = true) {
+  function addItem(focus = true, item) {
     const rows = $('#recipe-input-items');
     if (rows.children.length >= Math.min(50, data.ingredients.length)) return;
     const row = $('#recipe-item-row').content.firstElementChild.cloneNode(true);
     const select = row.querySelector('select');
     select.replaceChildren(new Option('Choose an ingredient', ''),
       ...data.ingredients.map((ingredient) => new Option(titleCase(ingredient.name), ingredient._id)));
+    if (item) {
+      select.value = item.ingredient_id;
+      row.querySelector('input').value = String(item.required / 100);
+      row.querySelector('[data-recipe-unit]').textContent = item.unit;
+    }
     select.addEventListener('change', () => {
       row.querySelector('[data-recipe-unit]').textContent = data.ingredients.find((item) => item._id === select.value)?.default_unit ?? '';
     });
@@ -196,6 +265,9 @@ export function createRecipesPage(root, { api, measure }) {
   for (const button of root.querySelectorAll('[data-recipe-back]')) button.addEventListener('click', () => {
     if (busy) return;
     const previous = selected?._id;
+    clearPhoto();
+    editing = undefined;
+    removeImage = false;
     selected = undefined;
     show(browse);
     renderList();
@@ -222,33 +294,96 @@ export function createRecipesPage(root, { api, measure }) {
       if (current()) detailStatus.textContent = `Recipe shared with ${friend.display_name}.`;
     });
   });
+  function openEditor(recipe) {
+    editing = recipe;
+    removeImage = false;
+    form.reset();
+    clearPhoto();
+    formStatus.textContent = '';
+    $('#recipe-create-title').textContent = recipe ? 'Edit recipe' : 'New recipe';
+    form.querySelector('[type=submit]').textContent = recipe ? 'Save changes' : 'Create recipe';
+    $('#recipe-photo-help').textContent = recipe
+      ? 'JPG or PNG, up to 2 MB and 20 megapixels. Keep the current photo, choose a replacement, or remove it to use the default illustration.'
+      : 'JPG or PNG, up to 2 MB and 20 megapixels. Leave blank to use the default illustration.';
+    $('#recipe-input-items').replaceChildren();
+    if (recipe) {
+      for (const name of ['title', 'description', 'instructions', 'servings']) form.elements[name].value = recipe[name];
+      recipe.items.forEach((item) => addItem(false, item));
+      if (!recipe.items.length) addItem(false);
+      showExistingPhoto();
+    } else addItem(false);
+    show(editor);
+    $('#recipe-create-title').focus();
+  }
+
+  $('#recipe-edit').addEventListener('click', () => {
+    if (!busy && selected?.owned) openEditor(selected);
+  });
+  $('#recipe-delete').addEventListener('click', () => {
+    if (!busy && selected?.owned) {
+      $('#recipe-delete-confirm').hidden = false;
+      $('#recipe-delete-no').focus();
+    }
+  });
+  $('#recipe-delete-no').addEventListener('click', () => {
+    if (busy) return;
+    $('#recipe-delete-confirm').hidden = true;
+    $('#recipe-delete').focus();
+  });
+  $('#recipe-delete-yes').addEventListener('click', () => {
+    if (!selected?.owned) return;
+    const recipe = selected;
+    action($('#recipe-delete-yes'), detailStatus, async (current) => {
+      await api(`${endpoint}/${recipe._id}`, 'DELETE');
+      if (!current()) return;
+      selected = undefined;
+      $('#recipe-delete-confirm').hidden = true;
+      show(browse);
+      await load();
+      if (current()) create.focus();
+    });
+  });
+
   create.addEventListener('click', () => {
     if (!data || busy) return;
     if (!data.ingredients.length) {
       status.textContent = 'No ingredients are available yet. Add ingredients to the shared dictionary first.';
       return;
     }
-    form.reset();
-    formStatus.textContent = '';
-    $('#recipe-input-items').replaceChildren();
-    addItem(false);
-    show(editor);
-    $('#recipe-create-title').focus();
+    openEditor();
   });
   $('#recipe-add-item').addEventListener('click', () => addItem());
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const fields = new FormData(form);
+    const file = photo.files[0];
+    const editId = editing?._id;
+    const deletePhoto = removeImage;
     const items = [...$('#recipe-input-items').children].map((row) => ({
       ingredient_id: row.querySelector('select').value,
       quantity: Math.round(row.querySelector('input').valueAsNumber * 100),
     }));
     action(event.submitter, formStatus, async (current) => {
-      const recipe = await api(endpoint, 'POST', {
+      let image;
+      if (file) {
+        if (!photoUrl) throw new Error('Wait for the photo preview before creating your recipe.');
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Cannot read this image. Please choose it again.'));
+          reader.readAsDataURL(file);
+        });
+        image = { content_type: file.type, data: dataUrl.split(',')[1] };
+      }
+      if (!current()) return;
+      const recipe = await api(editId ? `${endpoint}/${editId}` : endpoint, editId ? 'PATCH' : 'POST', {
         title: fields.get('title'), description: fields.get('description'), instructions: fields.get('instructions'),
         servings: Number(fields.get('servings')), items,
+        ...(image ? { image } : editId && deletePhoto ? { image: null } : {}),
       });
       if (!current()) return;
+      clearPhoto();
+      editing = undefined;
       filter = 'owned';
       show(browse);
       await load(recipe._id);

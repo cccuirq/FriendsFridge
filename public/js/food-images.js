@@ -33,7 +33,7 @@ export function foodImage(ingredient, { cover = false, kind = 'ingredient' } = {
   fallback.textContent = icons[ingredient.category] || (kind === 'drink' ? '🍹' : '🍽️');
   fallback.setAttribute('aria-hidden', 'true');
   wrapper.append(fallback);
-  const media = findFoodImage(ingredient.name, kind);
+  const media = ingredient.image_url ? { src: ingredient.image_url, provider: 'your upload' } : findFoodImage(ingredient.name, kind);
   if (media) {
     wrapper.title = `Illustration from ${media.provider}${media.author ? ' · ' + media.author : ''}${media.license ? ' · ' + media.license : ''}`;
     const image = document.createElement('img');
@@ -49,11 +49,11 @@ export function foodImage(ingredient, { cover = false, kind = 'ingredient' } = {
 
 export function recipeFigure(recipe) {
   const figure = document.createElement('figure'); figure.className = 'recipe-picture';
-  const image = foodImage({ name: recipe.title }, { cover: true, kind: 'recipe' });
+  const image = foodImage({ name: recipe.title, image_url: recipe.image_url }, { cover: true, kind: 'recipe' });
   const caption = document.createElement('figcaption');
-  const media = findFoodImage(recipe.title, 'recipe');
+  const media = recipe.image_url ? null : findFoodImage(recipe.title, 'recipe');
   if (media) {
     caption.append(document.createTextNode('Illustration · '), imageCredit(media));
-  } else caption.textContent = 'Recipe illustration';
+  } else caption.textContent = recipe.image_url ? 'Uploaded recipe photo' : 'Recipe illustration';
   figure.append(image, caption); return figure;
 }

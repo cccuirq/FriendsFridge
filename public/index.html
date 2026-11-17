@@ -42,10 +42,10 @@
           <button type="button" id="show-login" aria-pressed="true">Log in</button>
           <button type="button" id="show-register" aria-pressed="false">Create account</button>
         </nav>
-        <form id="login-form">
+        <form id="login-form" autocomplete="off">
           <h1>Welcome back</h1>
-          <label>Username or email<input name="identifier" autocomplete="username" maxlength="255" required /></label>
-          <label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required /></label>
+          <label>Username or email<input name="identifier" autocomplete="off" maxlength="255" required /></label>
+          <label>Password<input name="password" type="password" autocomplete="off" minlength="8" maxlength="128" required /></label>
           <button type="submit">Log in</button>
         </form>
         <form id="register-form" hidden>
@@ -182,7 +182,12 @@
         <p class="muted">Snap your groceries. Review the suggestions. Stock your fridge.</p>
         <div class="card recognition-panel">
           <h2>1. Choose a photo</h2>
-          <label>Ingredient photo<input data-upload type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" aria-describedby="photo-file-help" /></label>
+          <label for="ingredient-photo">Ingredient photo</label>
+          <div class="photo-file-picker">
+            <input id="ingredient-photo" data-upload type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" aria-describedby="photo-file-help" />
+            <span class="photo-file-button" aria-hidden="true">Choose File</span>
+            <span data-upload-name class="photo-file-name" aria-hidden="true">No file chosen</span>
+          </div>
           <p id="photo-file-help" class="muted">JPG or PNG · up to 10 MB and 20 megapixels. Photos are processed in memory and are not saved.</p>
           <canvas data-preview class="recognition-preview" role="img" aria-label="Uploaded photo with suggested ingredient detection boxes" hidden></canvas>
           <div class="actions">
@@ -240,6 +245,17 @@
               <h2 id="recipe-detail-title" tabindex="-1"></h2>
               <button type="button" id="recipe-save" aria-pressed="false">Save recipe</button>
             </div>
+            <div id="recipe-owner-actions" class="actions" hidden>
+              <button type="button" id="recipe-edit" class="secondary">Edit recipe</button>
+              <button type="button" id="recipe-delete" class="secondary">Delete recipe</button>
+            </div>
+            <div id="recipe-delete-confirm" hidden>
+              <p>Delete this recipe permanently? It will also be removed from saved and shared lists.</p>
+              <div class="actions">
+                <button type="button" id="recipe-delete-yes">Delete permanently</button>
+                <button type="button" id="recipe-delete-no" class="secondary">Cancel</button>
+              </div>
+            </div>
             <p id="recipe-detail-meta" class="muted"></p>
             <p id="recipe-description"></p>
             <div id="recipe-illustration"></div>
@@ -266,6 +282,15 @@
             <h2 id="recipe-create-title" tabindex="-1">New recipe</h2>
             <label>Recipe name<input name="title" maxlength="200" required /></label>
             <label>Description (optional)<input name="description" maxlength="500" /></label>
+            <label for="recipe-photo">Recipe photo (optional)</label>
+            <div class="photo-file-picker">
+              <input id="recipe-photo" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" aria-describedby="recipe-photo-help" />
+              <span class="photo-file-button" aria-hidden="true">Choose File</span>
+              <span id="recipe-photo-name" class="photo-file-name" aria-hidden="true">No file chosen</span>
+            </div>
+            <p id="recipe-photo-help" class="muted">JPG or PNG, up to 2 MB and 20 megapixels. Leave blank to use the default illustration.</p>
+            <img id="recipe-photo-preview" class="recipe-photo-preview" alt="Selected recipe photo" hidden />
+            <button id="recipe-photo-remove" type="button" class="secondary" hidden>Remove photo</button>
             <label>Servings<input name="servings" type="number" min="1" max="10000" value="2" required /></label>
             <fieldset>
               <legend>Ingredients and quantities</legend>

@@ -17,7 +17,9 @@ test('default food photos resolve canonical names, aliases and safe fallbacks', 
 });
 
 test('all demo photos are real local PNG/JPEG files with tracked sources', async () => {
-  assert.equal(defaultImages.length, ingredients.length + samples.length);
+  const uniqueRecipeImages = new Set(samples.map((recipe) => findFoodImage(recipe.title, 'recipe').src));
+  const ingredientImages = new Set(ingredients.map(([name]) => findFoodImage(name).src));
+  assert.equal(defaultImages.length, new Set([...ingredientImages, ...uniqueRecipeImages]).size);
   assert.equal(new Set(defaultImages.map((image) => image.src)).size, defaultImages.length);
   for (const image of defaultImages) {
     assert.match(image.src, /^\/assets\/defaults\/[a-z0-9-]+\.(png|jpg)$/);
@@ -32,7 +34,7 @@ test('all demo photos are real local PNG/JPEG files with tracked sources', async
 
 test('every seeded ingredient and example recipe has a matching illustration', () => {
   assert.equal(ingredients.length, 212);
-  assert.equal(samples.length, 10);
+  assert.equal(samples.length, 11);
   for (const [name, category] of ingredients) {
     const image = findFoodImage(name);
     assert.ok(image, `Missing ingredient image: ${name}`);

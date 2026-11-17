@@ -102,6 +102,7 @@ test('Inventory HTTP management and stock concurrency', { timeout: 240000 }, asy
       request(alice.cookie, path, 'PATCH', { status: 'completed' }),
     ]);
     assert.equal(handoff.status, 200);
+    assert.equal((await request(bob.cookie, '/api/inventory')).data.find((row) => row.ingredient_id === egg._id).quantity, 100);
     assert.equal((await stock())[0].quantity, edit.status === 200 ? 600 : 400);
     current = (await stock())[0].quantity;
     await request(alice.cookie, id, 'PATCH', { quantity: 0, expected_quantity: current });
@@ -112,5 +113,38 @@ test('Inventory HTTP management and stock concurrency', { timeout: 240000 }, asy
     assert.deepEqual(await stock(), []);
     await request(alice.cookie, '/api/inventory', 'POST', add(milk, 12500, 'friends'));
     assert.equal((await stock())[0].visibility, 'friends');
+  });
+  await t.test('handoffs credit the recipient once, preserve sharing and roll back on overflow', async () => {
+    const requestsPath = '/api/friends/ingredient-requests';
+    const requestMilk = async (quantity) => {
+      const sent = await request(bob.cookie, requestsPath, 'POST', { owner_id: alice.data._id, ingredient_id: milk._id, quantity });
+      assert.equal(sent.status, 201);
+      const path = `${requestsPath}/${sent.data._id}`;
+      assert.equal((await request(alice.cookie, path, 'PATCH', { status: 'accepted' })).status, 200);
+      return path;
+    };
+    const receivedMilk = async () => (await request(bob.cookie, '/api/inventory')).data.find((row) => row.ingredient_id === milk._id);
+    const first = await requestMilk(2000);
+    assert.equal(await receivedMilk(), undefined);
+    assert.equal((await stock())[0].quantity, 12500);
+    const completions = await Promise.all([1, 2].map(() => request(alice.cookie, first, 'PATCH', { status: 'completed' })));
+    assert.deepEqual(completions.map((row) => row.status).sort(), [200, 409]);
+    assert.equal((await receivedMilk()).quantity, 2000);
+    assert.equal((await receivedMilk()).visibility, 'private');
+    assert.equal((await stock())[0].quantity, 10500);
+    await request(bob.cookie, `/api/inventory/${(await receivedMilk())._id}`, 'PATCH', { quantity: 3000, expected_quantity: 2000, visibility: 'friends' });
+    const second = await requestMilk(500);
+    assert.equal((await request(alice.cookie, second, 'PATCH', { status: 'completed' })).status, 200);
+    assert.equal((await receivedMilk()).quantity, 3500);
+    assert.equal((await receivedMilk()).visibility, 'friends');
+    assert.equal((await stock())[0].quantity, 10000);
+    await request(bob.cookie, `/api/inventory/${(await receivedMilk())._id}`, 'PATCH', { quantity: Number.MAX_SAFE_INTEGER, expected_quantity: 3500 });
+    const overflow = await requestMilk(100);
+    assert.equal((await request(alice.cookie, overflow, 'PATCH', { status: 'completed' })).status, 409);
+    assert.equal((await stock())[0].quantity, 10000);
+    assert.equal((await receivedMilk()).quantity, Number.MAX_SAFE_INTEGER);
+    assert.equal((await db.collection('ingredient_requests').findOne({ _id: overflow.split('/').pop() })).status, 'accepted');
+    assert.equal((await request(bob.cookie, overflow, 'PATCH', { status: 'cancelled' })).status, 200);
+    assert.equal((await stock())[0].quantity, 10000);
   });
 });

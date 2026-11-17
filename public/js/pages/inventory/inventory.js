@@ -19,6 +19,7 @@ export function createInventoryPage(root, { api, measure }) {
   let pending;
   let busy = false;
   let opened = false;
+  let refreshing = false;
   const ingredient = () => catalog.find((item) => item.name.toLowerCase() === form.elements.ingredient.value.trim().toLowerCase());
   const error = (message = '') => { $('[data-stock-error]').textContent = message; };
 
@@ -165,6 +166,12 @@ export function createInventoryPage(root, { api, measure }) {
   $('[data-stock-retry]').addEventListener('click', openPage);
   return {
     open: openPage,
+    async refresh() {
+      if (root.hidden || busy || dialog.open || refreshing || !catalog.length) return;
+      refreshing = true;
+      try { await load(); } catch { /* Keep the current stock visible until the next refresh. */ }
+      finally { refreshing = false; }
+    },
     reset(accountChanged = false) {
       version++; dialog.close(); pending = undefined; editing = undefined; busy = false; catalog = [];
       $('[data-stock]').replaceChildren(); status.textContent = ''; $('[data-stock-empty]').hidden = true;

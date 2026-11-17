@@ -280,7 +280,7 @@ export const defaultImages = [
     "author": "Kushyark",
     "license": "CC BY-SA 4.0",
     "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
-    "image_title": "File:\u0647\u0644\u06cc \u06a9\u062a\u0646\u06cc (Hali Koteni).jpg",
+    "image_title": "File:هلی کتنی (Hali Koteni).jpg",
     "src": "/assets/defaults/ingredient-plum.jpg"
   },
   {
@@ -985,7 +985,7 @@ export const defaultImages = [
     "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bc/Durian_in_black.jpg/250px-Durian_in_black.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "source": "https://commons.wikimedia.org/wiki/File:Durian_in_black.jpg",
     "provider": "Wikimedia Commons",
-    "author": "\u0645\u0627\u0646\u0641\u06cc",
+    "author": "مانفی",
     "license": "CC BY-SA 4.0",
     "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
     "image_title": "File:Durian_in_black.jpg",
@@ -1144,7 +1144,7 @@ export const defaultImages = [
     "author": "No machine-readable author provided. Thierry Caro assumed (based on copyright claims).",
     "license": "CC BY-SA 2.5",
     "license_url": "https://creativecommons.org/licenses/by-sa/2.5",
-    "image_title": "File:Songe-R\u00e9union.JPG",
+    "image_title": "File:Songe-Réunion.JPG",
     "src": "/assets/defaults/ingredient-taro.jpg"
   },
   {
@@ -1169,7 +1169,7 @@ export const defaultImages = [
     "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/24/Dried_lotus_root_slices.jpg/250px-Dried_lotus_root_slices.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "source": "https://commons.wikimedia.org/wiki/File:Dried_lotus_root_slices.jpg",
     "provider": "Wikimedia Commons",
-    "author": "\uc628\ub9d8",
+    "author": "온맘",
     "license": "CC BY 4.0",
     "license_url": "https://creativecommons.org/licenses/by/4.0",
     "image_title": "File:Dried lotus root slices.jpg",
@@ -1564,7 +1564,7 @@ export const defaultImages = [
     "author": "cyclonebill from Copenhagen, Denmark",
     "license": "CC BY-SA 2.0",
     "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
-    "image_title": "File:Ristet_br\u00f8d_med_krabbekl\u00f8er_(4898535215).jpg",
+    "image_title": "File:Ristet_brød_med_krabbekløer_(4898535215).jpg",
     "src": "/assets/defaults/ingredient-crab.jpg"
   },
   {
@@ -1885,7 +1885,7 @@ export const defaultImages = [
     "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/41/Barley_grains_3.jpg/250px-Barley_grains_3.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "source": "https://commons.wikimedia.org/wiki/File:Barley_grains_3.jpg",
     "provider": "Wikimedia Commons",
-    "author": "\uad6d\ub9bd\uad6d\uc5b4\uc6d0",
+    "author": "국립국어원",
     "license": "CC BY-SA 2.0 kr",
     "license_url": "https://creativecommons.org/licenses/by-sa/2.0/kr/deed.en",
     "image_title": "File:Barley grains 3.jpg",
@@ -2079,7 +2079,7 @@ export const defaultImages = [
     "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/15/Flax_seeds.jpg/250px-Flax_seeds.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "source": "https://commons.wikimedia.org/wiki/File:Flax_seeds.jpg",
     "provider": "Wikimedia Commons",
-    "author": "Bdevel (talk\u00a0\u00b7 contribs)",
+    "author": "Bdevel (talk · contribs)",
     "license": "CC BY-SA 2.5",
     "license_url": "https://creativecommons.org/licenses/by-sa/2.5",
     "image_title": "File:Flax seeds.jpg",
@@ -2424,5 +2424,17 @@ export const defaultImages = [
     "url": "https://www.thecocktaildb.com/images/media/drink/metwgh1606770327.jpg/small",
     "source": "https://www.thecocktaildb.com/drink/11000",
     "src": "/assets/defaults/drink-mojito.jpg"
+  },
+  {
+    "key": "tomato and egg stir-fry",
+    "name": "Tomato and Egg Stir-Fry",
+    "kind": "recipe",
+    "provider": "Wikimedia Commons",
+    "url": "https://live.staticflickr.com/65535/54092966601_4e497653ed_o.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:MyPlate_gov_Cultural_Food_(20241025-USDA-FNS-UNK-0083).jpg",
+    "src": "/assets/defaults/recipe-tomato-and-egg-stir-fry.jpg",
+    "author": "USDAgov",
+    "license": "Public domain",
+    "license_url": "https://commons.wikimedia.org/wiki/Template:PD-USGov-USDA"
   }
 ];

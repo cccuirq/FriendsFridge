@@ -5,6 +5,14 @@ import { connectDatabase, inTransaction } from '../../src/db/connection.js';
 
 export const samples = [
   {
+    id: 'f1000000-0000-4000-8000-000000000011',
+    title: 'Tomato and Egg Stir-Fry',
+    description: 'Soft scrambled eggs tossed with juicy tomatoes in a simple home-style dish.',
+    servings: 2,
+    instructions: 'Cut the tomatoes into bite-sized pieces and beat the eggs.\nWarm a nonstick pan over medium-low heat. Gently scramble the eggs, then transfer them to a plate.\nAdd the tomatoes to the pan and cook until softened and juicy.\nReturn the eggs to the pan and stir gently until the eggs are fully cooked. Serve warm.',
+    items: [['egg', 'piece', 200], ['tomato', 'g', 30000]],
+  },
+  {
     id: 'f1000000-0000-4000-8000-000000000001',
     title: 'Fluffy Pancakes',
     description: 'A quick breakfast made with flour, milk, and eggs.',
@@ -293,7 +301,10 @@ export async function seedRecipes(client, db) {
   for (const { id: _id, items, ...recipe } of samples) {
     await inTransaction(client, async (session) => {
       const recipes = db.collection('recipes');
-      if (await recipes.findOne({ _id }, { session })) return;
+      const existing = await recipes.findOne({ _id }, { session });
+      const replaceFriedEgg = _id === 'f1000000-0000-4000-8000-000000000011'
+        && existing?.author_id === null && existing.title === 'Fried Egg';
+      if (existing && !replaceFriedEgg) return;
       const ingredients = await db.collection('ingredients')
         .find({ name: { $in: items.map(([name]) => name) } }, { session }).toArray();
       const ids = new Map(ingredients.map((ingredient) => [ingredient.name, ingredient]));
@@ -303,7 +314,12 @@ export async function seedRecipes(client, db) {
         if (ingredient?.default_unit !== unit) throw new Error(`Seed ingredient "${name}" with unit "${unit}" first.`);
         return { _id: randomUUID(), recipe_id: _id, ingredient_id: ingredient._id, quantity, created_at: now };
       });
-      await recipes.insertOne({ _id, ...recipe, author_id: null, visibility: 'public', created_at: now, updated_at: now }, { session });
+      if (replaceFriedEgg) {
+        await recipes.updateOne({ _id }, { $set: { ...recipe, updated_at: now } }, { session });
+        await db.collection('recipe_ingredients').deleteMany({ recipe_id: _id }, { session });
+      } else {
+        await recipes.insertOne({ _id, ...recipe, author_id: null, visibility: 'public', created_at: now, updated_at: now }, { session });
+      }
       await db.collection('recipe_ingredients').insertMany(rows, { session });
     });
   }

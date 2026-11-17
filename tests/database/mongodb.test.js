@@ -65,6 +65,7 @@ test('MongoDB validators, indexes, seeds, permissions and transactions', { timeo
   const results = await Promise.allSettled([repository.transition(owner, first._id, 'completed'), repository.transition(owner, second._id, 'completed')]);
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
   assert.equal((await db.collection('inventory_items').findOne({ _id: item._id })).quantity, 100);
+  assert.equal((await db.collection('inventory_items').findOne({ user_id: requester, ingredient_id: ingredient._id })).quantity, 200);
   assert.equal(await db.collection('ingredient_requests').countDocuments({ status: 'completed' }), 1);
   assert.equal(await db.collection('ingredient_requests').countDocuments({ status: 'accepted' }), 1);
   const completed = await db.collection('ingredient_requests').findOne({ status: 'completed' });
@@ -81,13 +82,30 @@ test('MongoDB validators, indexes, seeds, permissions and transactions', { timeo
   await assert.rejects(recipes.deleteOwned(outsider, recipeId), /not owned/);
   await recipes.deleteOwned(owner, recipeId);
   for (const name of ['recipe_ingredients', 'saved_recipes', 'recipe_shares']) assert.equal(await db.collection(name).countDocuments({ recipe_id: recipeId }), 0);
+  const friedEggId = 'f1000000-0000-4000-8000-000000000011';
+  await db.collection('recipes').insertOne({ _id: friedEggId, author_id: null, title: 'Fried Egg', description: '', instructions: 'Fry an egg.', servings: 1, visibility: 'public', created_at: now, updated_at: now });
+  await db.collection('recipe_ingredients').insertOne({ _id: randomUUID(), recipe_id: friedEggId, ingredient_id: ingredient._id, quantity: 100, created_at: now });
+  await recipes.setSaved(owner, friedEggId, true);
   await seedRecipes(client, db);
+  assert.equal((await db.collection('recipes').findOne({ _id: friedEggId })).title, 'Tomato and Egg Stir-Fry');
+  assert.equal(await db.collection('recipe_ingredients').countDocuments({ recipe_id: friedEggId }), 2);
+  assert.equal((await db.collection('recipe_ingredients').findOne({ recipe_id: friedEggId, ingredient_id: ingredient._id })).quantity, 200);
+  assert.equal(await db.collection('saved_recipes').countDocuments({ recipe_id: friedEggId, user_id: owner }), 1);
   const originalRecipes = await db.collection('recipes').find({}).sort({ _id: 1 }).toArray();
   const originalRows = await db.collection('recipe_ingredients').find({}).sort({ _id: 1 }).toArray();
   await seedRecipes(client, db);
   assert.deepEqual(await db.collection('recipes').find({}).sort({ _id: 1 }).toArray(), originalRecipes);
   assert.deepEqual(await db.collection('recipe_ingredients').find({}).sort({ _id: 1 }).toArray(), originalRows);
-  assert.equal(originalRecipes.length, 10);
+  assert.equal(originalRecipes.length, 11);
+  // Saving a public recipe belongs only to the account that saved it.
+  const publicRecipeId = originalRecipes[0]._id;
+  await recipes.setSaved(owner, publicRecipeId, true);
+  assert.equal((await recipes.list(owner)).recipes.find((row) => row._id === publicRecipeId).saved, true);
+  assert.equal((await recipes.list(requester)).recipes.find((row) => row._id === publicRecipeId).saved, false);
+  await recipes.setSaved(requester, publicRecipeId, true);
+  await recipes.setSaved(owner, publicRecipeId, false);
+  assert.equal((await recipes.list(owner)).recipes.find((row) => row._id === publicRecipeId).saved, false);
+  assert.equal((await recipes.list(requester)).recipes.find((row) => row._id === publicRecipeId).saved, true);
   for (const sample of samples) {
     const rows = originalRows.filter((row) => row.recipe_id === sample.id);
     assert.equal(rows.length, sample.items.length);

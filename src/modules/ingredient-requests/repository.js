@@ -77,6 +77,16 @@ export function ingredientRequestRepository(client, db) {
             $inc: { quantity: -request.quantity }, $set: { updated_at: now },
           }, { session });
           if (result.modifiedCount !== 1) throw new HttpError(409, 'INSUFFICIENT_STOCK', 'There is no longer enough stock to complete this request.');
+          const recipientKey = { user_id: request.requester_id, ingredient_id: request.ingredient_id };
+          const recipientStock = await inventory.findOne(recipientKey, { session });
+          if (recipientStock && !Number.isSafeInteger(recipientStock.quantity + request.quantity)) {
+            throw new HttpError(409, 'INVALID_QUANTITY', 'The recipient inventory quantity would be too large.');
+          }
+          await inventory.updateOne(recipientKey, {
+            $inc: { quantity: request.quantity },
+            $set: { updated_at: now },
+            $setOnInsert: { _id: randomUUID(), created_at: now, visibility: 'private' },
+          }, { session, upsert: true });
         }
         const result = await requests.findOneAndUpdate({ _id: requestId, status: request.status }, {
           $set: { status: nextStatus, updated_at: now },

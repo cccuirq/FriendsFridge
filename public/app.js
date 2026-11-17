@@ -5,6 +5,32 @@ import { invitationPages } from './js/pages/friends/invitations.js';
 import { foodImage } from './js/food-images.js';
 
 const $ = (selector) => document.querySelector(selector);
+
+// Native validation messages otherwise follow the browser's display language.
+document.addEventListener('invalid', (event) => {
+  const field = event.target;
+  if (!field.matches('input, select, textarea')) return;
+  field.setCustomValidity('');
+  const validity = field.validity;
+  let message = '';
+  if (validity.badInput) message = 'Please enter a valid number.';
+  else if (validity.valueMissing) message = field.matches('select') ? 'Please select an option.' : 'Please fill out this field.';
+  else if (validity.typeMismatch) message = field.type === 'email' ? 'Please enter a valid email address.' : 'Please enter a valid URL.';
+  else if (validity.patternMismatch) message = field.title ? `Please use the requested format: ${field.title}.` : 'Please use the requested format.';
+  else if (validity.tooShort) message = `Please enter at least ${field.minLength} characters.`;
+  else if (validity.tooLong) message = `Please enter no more than ${field.maxLength} characters.`;
+  else if (validity.rangeUnderflow) message = `Please enter a value greater than or equal to ${field.min}.`;
+  else if (validity.rangeOverflow) message = `Please enter a value less than or equal to ${field.max}.`;
+  else if (validity.stepMismatch) message = `Please enter a valid value in increments of ${field.step || '1'}.`;
+  field.setCustomValidity(message);
+}, true);
+
+for (const type of ['input', 'change']) {
+  document.addEventListener(type, (event) => {
+    if (event.target.matches('input, select, textarea')) event.target.setCustomValidity('');
+  });
+}
+
 const recipesPage = createRecipesPage($('#recipes-page'), { api, measure });
 const recognitionPage = createRecognitionPage($('#recognition-page'), { api });
 const inventoryPage = createInventoryPage($('#my-fridge-page'), { api, measure });
@@ -41,6 +67,31 @@ let unreadPeers = new Set();
 let unreadRevision = 0;
 const messageTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
+// Cookies are shared by tabs, so discard old account screens after a switch.
+const accountChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('ff-account') : null;
+accountChannel?.addEventListener('message', () => location.reload());
+window.addEventListener('storage', (event) => {
+  if (!accountChannel && event.key === 'ff-account-change') location.reload();
+});
+function announceAccountChange() {
+  accountChannel?.postMessage('changed');
+  try { localStorage.setItem('ff-account-change', crypto.randomUUID()); } catch { /* Storage may be disabled. */ }
+}
+
+async function checkAccount() {
+  const version = generation;
+  try {
+    const response = await fetch('/api/users/me', { credentials: 'same-origin', cache: 'no-store' });
+    const result = await response.json();
+    if (version !== generation) return;
+    if ((response.ok && result.data._id !== currentUser?._id) || (response.status === 401 && currentUser)) location.reload();
+  } catch { /* Retry on the next focus; failed requests must not change accounts. */ }
+}
+window.addEventListener('focus', checkAccount);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') checkAccount();
+});
+
 function notice(message = '', error = false) {
   $('#notice').textContent = message;
   $('#notice').classList.toggle('error', error);
@@ -51,11 +102,15 @@ async function api(path, method = 'GET', body) {
   const response = await fetch(path, {
     method,
     credentials: 'same-origin',
-    headers: body ? { 'Content-Type': body instanceof Blob ? body.type : 'application/json' } : {},
+    headers: {
+      ...(currentUser ? { 'X-FF-User': currentUser._id } : {}),
+      ...(body ? { 'Content-Type': body instanceof Blob ? body.type : 'application/json' } : {}),
+    },
     body: body instanceof Blob ? body : body ? JSON.stringify(body) : undefined,
   });
   const result = await response.json();
   if (!response.ok) {
+    if (result.error?.code === 'ACCOUNT_CHANGED') location.reload();
     if (response.status === 401 && !path.endsWith('/login') && version === generation) showAccount(null);
     const error = new Error(result.error?.message || 'Request failed. Please try again.');
     error.status = response.status;
@@ -670,6 +725,7 @@ function refreshLive() {
   loadUnread().catch(() => {});
   if (conversation) refreshOpenConversation(conversation);
   if (!$('#friends-page').hidden) loadDirectory().catch(() => {});
+  if (!$('#my-fridge-page').hidden) inventoryPage.refresh();
 }
 function pollActivity() {
   if (!document.hidden) refreshLive();
@@ -733,6 +789,7 @@ for (const mode of ['login', 'register']) {
     const form = event.currentTarget;
     run(form.querySelector('button'), async () => {
       const user = await api('/api/auth/' + mode, 'POST', Object.fromEntries(new FormData(form)));
+      announceAccountChange();
       form.reset();
       showAccount(user);
       await refresh();
@@ -754,6 +811,7 @@ $('#profile-form').addEventListener('submit', (event) => {
 });
 $('#logout').addEventListener('click', (event) => run(event.currentTarget, async () => {
   await api('/api/auth/logout', 'POST');
+  announceAccountChange();
   showAccount(null);
   history.replaceState(null, '', location.pathname + location.search);
   notice('You have logged out.');

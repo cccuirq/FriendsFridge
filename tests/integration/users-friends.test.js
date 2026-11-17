@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 import { randomUUID, createHash } from 'node:crypto';
 import { MongoClient } from 'mongodb';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
@@ -276,6 +277,9 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     assert.equal((await bob.request(detail, 'PATCH', { status: 'completed' })).status, 200);
     assert.equal((await bob.request(detail, 'PATCH', { status: 'completed' })).status, 409);
     assert.equal((await alice.request(fridge)).body.data.items[0].quantity, 175);
+    const receivedStock = (await alice.request('/api/inventory')).body.data.find((row) => row.ingredient_id === egg);
+    assert.equal(receivedStock.quantity, 125);
+    assert.equal(receivedStock.visibility, 'private');
     assert.equal((await alice.request(path)).body.data[0].status, 'completed');
     await db.collection('friendships').updateOne({ _id: relationId }, { $set: { status: 'removed' } });
     assert.equal((await alice.request(fridge)).status, 404);
@@ -294,6 +298,60 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     const created = await bob.request(endpoint, 'POST', draft);
     assert.equal(created.status, 201);
     const id = created.body.data._id;
+    const photoData = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9XcAAAAASUVORK5CYII=';
+    const uploaded = await bob.request(endpoint, 'POST', { ...draft, image: { content_type: 'image/png', data: photoData } });
+    assert.equal(uploaded.status, 201);
+    const photoId = uploaded.body.data._id;
+    const photoPath = `${endpoint}/${photoId}/image`;
+    const listedPhoto = (await bob.request(endpoint)).body.data.recipes.find((row) => row._id === photoId);
+    assert.equal(listedPhoto.image_url, photoPath);
+    assert.equal(listedPhoto.image, undefined);
+    const imageResponse = await fetch(base + photoPath, { headers: { Cookie: bob.cookie } });
+    assert.equal(imageResponse.status, 200);
+    assert.equal(imageResponse.headers.get('content-type'), 'image/png');
+    assert.deepEqual(Buffer.from(await imageResponse.arrayBuffer()), Buffer.from(photoData, 'base64'));
+    assert.equal((await alice.request(photoPath)).status, 404);
+    assert.equal((await guest.request(photoPath)).status, 401);
+    assert.equal((await bob.request(`${endpoint}/${id}/image`)).status, 404);
+    assert.equal((await bob.request(endpoint, 'POST', { ...draft, image: { content_type: 'image/svg+xml', data: photoData } })).status, 400);
+    assert.equal((await bob.request(endpoint, 'POST', { ...draft, image: { content_type: 'image/jpeg', data: photoData } })).status, 400);
+    assert.equal((await bob.request(endpoint, 'POST', { ...draft, image: { content_type: 'image/png', data: Buffer.alloc(2 * 1024 * 1024 + 1).toString('base64') } })).status, 413);
+    await db.collection('recipes').updateOne({ _id: photoId }, { $set: { visibility: 'public' } });
+    const publicPhoto = await fetch(base + photoPath, { headers: { Cookie: alice.cookie } });
+    assert.equal(publicPhoto.status, 200);
+    await publicPhoto.arrayBuffer();
+    const editPath = `${endpoint}/${photoId}`;
+    const revised = { ...draft, title: 'Updated egg recipe', servings: 3, items: [{ ingredient_id: egg._id, quantity: 300 }] };
+    assert.equal((await alice.request(editPath, 'PATCH', revised)).status, 404);
+    assert.equal((await alice.request(editPath, 'DELETE')).status, 404);
+    assert.equal((await guest.request(editPath, 'DELETE')).status, 401);
+    await alice.request(`${editPath}/saved`, 'PUT');
+    assert.equal((await bob.request(editPath, 'PATCH', revised)).status, 200);
+    let edited = (await alice.request(endpoint)).body.data.recipes.find((row) => row._id === photoId);
+    assert.equal(edited.title, revised.title);
+    assert.equal(edited.servings, 3);
+    assert.equal(edited.items[0].required, 300);
+    assert.equal(edited.saved, true);
+    assert.equal(edited.image_url, photoPath);
+    const replacement = await readFile(new URL('../../public/assets/defaults/ingredient-egg.png', import.meta.url));
+    assert.equal((await bob.request(editPath, 'PATCH', { ...revised, image: { content_type: 'image/png', data: replacement.toString('base64') } })).status, 200);
+    const replaced = await fetch(base + photoPath, { headers: { Cookie: bob.cookie } });
+    assert.deepEqual(Buffer.from(await replaced.arrayBuffer()), replacement);
+    assert.equal((await bob.request(editPath, 'PATCH', { ...revised, title: 'Should roll back', items: [{ ingredient_id: randomUUID(), quantity: 100 }] })).status, 400);
+    edited = (await bob.request(endpoint)).body.data.recipes.find((row) => row._id === photoId);
+    assert.equal(edited.title, revised.title);
+    assert.equal(edited.items[0].required, 300);
+    assert.equal((await bob.request(editPath, 'PATCH', { ...revised, image: null })).status, 200);
+    assert.equal((await bob.request(photoPath)).status, 404);
+    assert.equal((await bob.request(endpoint)).body.data.recipes.find((row) => row._id === photoId).image_url, undefined);
+    const shareNow = new Date();
+    await db.collection('recipe_shares').insertOne({ _id: randomUUID(), recipe_id: photoId, sender_id: bobId, recipient_id: aliceId, message: '', created_at: shareNow });
+    assert.equal((await bob.request(editPath, 'DELETE')).status, 200);
+    for (const collection of ['recipes', 'recipe_ingredients', 'saved_recipes', 'recipe_shares']) {
+      assert.equal(await db.collection(collection).countDocuments(collection === 'recipes' ? { _id: photoId } : { recipe_id: photoId }), 0);
+    }
+    assert.equal((await bob.request(editPath, 'DELETE')).status, 404);
+    assert.equal((await bob.request(editPath, 'PATCH', revised)).status, 404);
     const getRecipe = async (person) => (await person.request(endpoint)).body.data.recipes.find((recipe) => recipe._id === id);
     const mine = await getRecipe(bob);
     assert.equal(mine.owned, true);
@@ -310,7 +368,21 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     const received = await getRecipe(alice);
     assert.equal(received.shared, true);
     assert.equal(received.saved, true);
-    assert.equal(received.items[0].missing, 200);
+    // An old Alice tab now sends Bob's shared cookie after another tab logs in.
+    // Its displayed account must never silently save a recipe or log Bob out.
+    const staleHeaders = { 'X-FF-User': aliceId };
+    for (const [path, method] of [[`${endpoint}/${id}/saved`, 'PUT'], [endpoint, 'GET'], ['/api/auth/logout', 'POST']]) {
+      const stale = await bob.request(path, method, undefined, staleHeaders);
+      assert.equal(stale.status, 409);
+      assert.equal(stale.body.error.code, 'ACCOUNT_CHANGED');
+    }
+    assert.equal((await bob.request('/api/users/me')).body.data._id, bobId);
+    assert.equal((await getRecipe(bob)).saved, false);
+    assert.equal((await bob.request(`${endpoint}/${id}/saved`, 'PUT', undefined, { 'X-FF-User': bobId })).status, 200);
+    assert.equal((await getRecipe(bob)).saved, true);
+    assert.equal((await bob.request(`${endpoint}/${id}/saved`, 'DELETE', undefined, { 'X-FF-User': bobId })).status, 200);
+    assert.equal((await getRecipe(alice)).saved, true);
+    assert.equal(received.items[0].missing, 75);
     assert.equal(await getRecipe(eve), undefined);
     assert.equal(await db.collection('recipe_shares').countDocuments({ recipe_id: id }), 1);
     assert.equal(await db.collection('saved_recipes').countDocuments({ recipe_id: id }), 1);

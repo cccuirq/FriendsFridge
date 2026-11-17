@@ -23,7 +23,7 @@ export function createApp(client, db, options) {
   const users = userRoutes(client, db, { ...options, events });
   const server = createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
-    response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    response.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' blob:; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     response.setHeader('Referrer-Policy', 'same-origin');
     try {
       const url = new URL(request.url, 'http://localhost');

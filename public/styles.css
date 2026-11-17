@@ -12,6 +12,16 @@
   --mint: #d2efdb;
 }
 .recognition-panel { margin-bottom: 22px; }
+#recipe-photo-help { margin: 12px 0 20px; }
+.recipe-photo-preview { display: block; width: min(100%, 360px); max-height: 240px; object-fit: contain; margin: 0 0 16px; border-radius: 10px; }
+#recipe-photo-remove { display: flex; width: fit-content; margin: 0 0 24px; }
+.photo-file-picker { position: relative; display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 10px; border: 1px solid var(--muted); border-radius: 8px; background: #fff; }
+.photo-file-picker input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.photo-file-picker:focus-within { outline: 2px solid var(--ink); outline-offset: 3px; }
+.photo-file-picker:has(input:disabled) { opacity: .6; }
+.photo-file-picker input:disabled { cursor: default; }
+.photo-file-button { flex: none; padding: 4px 8px; border: 1px solid var(--muted); border-radius: 4px; background: var(--paper); font-size: 14px; }
+.photo-file-name { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
 .recognition-preview { display: block; width: 100%; height: auto; margin: 18px 0; border: 2px solid var(--ink); border-radius: 10px; }
 .recognition-status { line-height: 1.5; overflow-wrap: anywhere; }
 .recognition-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(80px, 1fr) 70px auto; gap: 10px; align-items: end; padding: 16px 0; border-top: 1px solid var(--line); }
@@ -176,8 +186,8 @@ button:disabled { opacity: .6; cursor: wait; }
 .recipe-grid, .recipe-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .recipe-card h2 { margin: 10px 0 5px; }
 .recipe-card { overflow-wrap: anywhere; }
-.recipe-badge { background: var(--peach); }
-.recipe-badge.ready { background: var(--mint); }
+.pill.recipe-badge { background: var(--yellow); }
+.pill.recipe-badge.ready { background: var(--mint); }
 .recipe-panel { margin-top: 14px; }
 .recipe-toolbar { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
 .recipe-toolbar h2, .recipe-toolbar label { margin: 0; }

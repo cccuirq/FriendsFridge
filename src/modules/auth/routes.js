@@ -30,6 +30,13 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
       const expected = `${secureCookies ? 'https' : 'http'}://${request.headers.host}`;
       if ((request.headers.origin && request.headers.origin !== expected) || request.headers['sec-fetch-site'] === 'cross-site') throw new HttpError(403, 'CROSS_ORIGIN', 'Cross-origin requests are not allowed.');
     }
+    let verifiedUser;
+    if (request.headers['x-ff-user']) {
+      verifiedUser = await auth.authenticate(cookie(request));
+      if (verifiedUser._id !== request.headers['x-ff-user']) {
+        throw new HttpError(409, 'ACCOUNT_CHANGED', 'Your account changed in another tab. Reload this page before continuing.');
+      }
+    }
     if (['/api/auth/register', '/api/auth/login'].includes(path) && request.method === 'POST') {
       const now = Date.now();
       for (const [key, record] of attempts) if (record.until <= now) attempts.delete(key);
@@ -48,7 +55,7 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
       await auth.logout(cookie(request)); events.disconnect(cookie(request));
       setCookie(response, ''); json(response, 200, { data: { logged_out: true } }); return true;
     }
-    const user = await auth.authenticate(cookie(request));
+    const user = verifiedUser || await auth.authenticate(cookie(request));
     if (path === '/api/ingredients' || (path.startsWith('/api/inventory') && path !== '/api/inventory/imports')) {
       await inventory(request, response, path, user._id);
       return true;

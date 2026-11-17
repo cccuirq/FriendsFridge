@@ -7,14 +7,14 @@ export function json(response, status, data) {
   response.end(JSON.stringify(data));
 }
 
-export async function readJson(request) {
+export async function readJson(request, maxBytes = 16384) {
   if (request.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw new HttpError(415, 'JSON_REQUIRED', 'Use application/json.');
   let size = 0;
   let tooLarge = false;
   const chunks = [];
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 16384) { tooLarge = true; chunks.length = 0; }
+    if (size > maxBytes) { tooLarge = true; chunks.length = 0; }
     if (!tooLarge) chunks.push(chunk);
   }
   if (tooLarge) throw new HttpError(413, 'BODY_TOO_LARGE', 'Request is too large.');

@@ -82,7 +82,10 @@ export function createRecognitionPage(root, { api }) {
     bitmap?.close(); bitmap = null; file = null; rows = []; detections = [];
     pending = undefined; submitted = false; recognized = false; busy = false;
     batchId = crypto.randomUUID();
-    if (resetUpload) $('[data-upload]').value = '';
+    if (resetUpload) {
+      $('[data-upload]').value = '';
+      $('[data-upload-name]').textContent = 'No file chosen';
+    }
     $('[data-saved]').hidden = true;
     status('Choose a photo, or add ingredients manually. Nothing is saved until you confirm.');
     draw(); renderRows();
@@ -110,6 +113,7 @@ export function createRecognitionPage(root, { api }) {
     const selected = event.target.files[0];
     if (!selected) return;
     clear(false);
+    $('[data-upload-name]').textContent = selected.name;
     if (!/\.(jpe?g|png)$/i.test(selected.name) || !['image/jpeg', 'image/png'].includes(selected.type)) return status('Choose a JPG, JPEG or PNG image.');
     if (!selected.size || selected.size > 10 * 1024 * 1024) return status('Choose a non-empty image no larger than 10 MB.');
     const current = version;
