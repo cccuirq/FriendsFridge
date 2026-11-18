@@ -35,7 +35,10 @@ export const collections = {
   ], { low_received: quantity(0), low_read: quantity(0), high_received: quantity(0), high_read: quantity(0) }),
   friend_messages: collection({ sender_id: id, recipient_id: id, text: text(1000) }, [index({ sender_id: 1, recipient_id: 1, created_at: -1 }), index({ recipient_id: 1, sender_id: 1, created_at: -1 })], [{ $ne: ['$sender_id', '$recipient_id'] }]),
   ingredient_requests: collection({ requester_id: id, owner_id: id, ingredient_id: id, quantity: quantity(1), message: { bsonType: 'string' }, status: states('pending', 'accepted', 'completed', 'declined', 'cancelled'), updated_at: date }, [index({ owner_id: 1, status: 1 }), index({ requester_id: 1, status: 1 })], [{ $ne: ['$requester_id', '$owner_id'] }]),
-  recipe_shares: collection({ recipe_id: id, sender_id: id, recipient_id: id, message: { bsonType: 'string' } }, [unique({ recipe_id: 1, recipient_id: 1 }), index({ recipient_id: 1, created_at: -1 })], [{ $ne: ['$sender_id', '$recipient_id'] }]),
+  recipe_shares: collection({ recipe_id: id, sender_id: id, recipient_id: id, message: { bsonType: 'string' }, status: states('pending', 'accepted', 'declined', 'cancelled', 'removed'), updated_at: date }, [
+    { key: { recipe_id: 1, recipient_id: 1 }, name: 'active_recipe_share', unique: true, partialFilterExpression: { status: { $in: ['pending', 'accepted'] } } },
+    index({ recipient_id: 1, created_at: -1 }), index({ sender_id: 1, recipient_id: 1, created_at: -1 }),
+  ], [{ $ne: ['$sender_id', '$recipient_id'] }], { recipe_title: text(200) }),
 };
 
 export async function initializeDatabase(db) {
@@ -49,6 +52,18 @@ export async function initializeDatabase(db) {
     // Preserve existing ingredients; unknown freshness is represented by null.
     if (name === 'ingredients') {
       await db.collection(name).updateMany({ fresh_interval: { $exists: false } }, { $set: { fresh_interval: null } });
+    }
+    if (name === 'recipe_shares') {
+      // Previous shares were delivered without consent; ask recipients to accept.
+      await db.collection(name).updateMany({ status: { $exists: false } }, [
+        { $set: { status: 'pending', updated_at: '$created_at' } },
+      ]);
+      const oldIndex = (await db.collection(name).listIndexes().toArray())
+        .find((entry) => entry.unique && !entry.partialFilterExpression && entry.key.recipe_id === 1 && entry.key.recipient_id === 1);
+      if (oldIndex) {
+        try { await db.collection(name).dropIndex(oldIndex.name); }
+        catch (error) { if (error.code !== 27) throw error; }
+      }
     }
     if (indexes.length) await db.collection(name).createIndexes(indexes);
   }

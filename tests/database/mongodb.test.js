@@ -77,7 +77,7 @@ test('MongoDB validators, indexes, seeds, permissions and transactions', { timeo
   await db.collection('recipes').insertOne({ _id: recipeId, author_id: owner, title: 'Eggs', description: '', instructions: 'Cook eggs.', servings: 1, visibility: 'private', created_at: now, updated_at: now });
   await db.collection('recipe_ingredients').insertOne({ _id: randomUUID(), recipe_id: recipeId, ingredient_id: ingredient._id, quantity: 100, created_at: now });
   await db.collection('saved_recipes').insertOne({ _id: randomUUID(), recipe_id: recipeId, user_id: requester, created_at: now });
-  await db.collection('recipe_shares').insertOne({ _id: randomUUID(), recipe_id: recipeId, sender_id: owner, recipient_id: requester, message: '', created_at: now });
+  await db.collection('recipe_shares').insertOne({ _id: randomUUID(), recipe_id: recipeId, sender_id: owner, recipient_id: requester, message: '', status: 'accepted', created_at: now, updated_at: now });
   const recipes = recipeRepository(client, db);
   await assert.rejects(recipes.deleteOwned(outsider, recipeId), /not owned/);
   await recipes.deleteOwned(owner, recipeId);

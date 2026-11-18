@@ -48,7 +48,7 @@ function recipeInput(body, editing = false) {
   };
 }
 
-export function recipeRoutes(client, db) {
+export function recipeRoutes(client, db, { events } = {}) {
   const recipes = recipeRepository(client, db);
   return async (request, response, path, actorId) => {
     if (path === '/api/recipes') {
@@ -57,6 +57,17 @@ export function recipeRoutes(client, db) {
         const body = recipeInput(await readJson(request, 3 * 1024 * 1024));
         json(response, 201, { data: await recipes.create(actorId, body) });
       } else throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
+      return;
+    }
+    const sharing = /^\/api\/recipes\/shares\/([^/]+)$/.exec(path);
+    if (sharing) {
+      if (request.method !== 'PATCH') throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
+      const body = await readJson(request);
+      fields(body, ['status']);
+      if (!['accepted', 'declined', 'cancelled', 'removed'].includes(body.status)) throw new HttpError(400, 'INVALID_INPUT', 'Choose a valid sharing action.');
+      const result = await recipes.transitionShare(actorId, uuid(sharing[1]), body.status);
+      events?.publish(result.sender_id, result.recipient_id);
+      json(response, 200, { data: result });
       return;
     }
     const ownRecipe = /^\/api\/recipes\/([^/]+)$/.exec(path);
@@ -83,7 +94,9 @@ export function recipeRoutes(client, db) {
     } else if (match[2] === 'shares' && request.method === 'POST') {
       const body = await readJson(request);
       fields(body, ['recipient_id']);
-      json(response, 200, { data: await recipes.share(actorId, id, uuid(body.recipient_id)) });
+      const result = await recipes.share(actorId, id, uuid(body.recipient_id));
+      events?.publish(result.sender_id, result.recipient_id);
+      json(response, 200, { data: result });
     } else throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
   };
 }

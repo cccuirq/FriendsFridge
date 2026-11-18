@@ -12,7 +12,7 @@ export function userRoutes(client, db, { secureCookies = process.env.NODE_ENV ==
   const friends = friendshipService(db);
   const ingredients = ingredientRequestRepository(client, db);
   const conversations = conversationRepository(client, db);
-  const recipes = recipeRoutes(client, db);
+  const recipes = recipeRoutes(client, db, { events });
   const recognition = recognitionRoutes(client, db);
   const inventory = inventoryRoutes(client, db);
   const attempts = new Map();

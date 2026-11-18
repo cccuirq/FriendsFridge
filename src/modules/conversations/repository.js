@@ -40,6 +40,17 @@ function timeline(actorId, peerId, before) {
         ingredient_id: 1, quantity: 1, status: 1, kind: { $literal: 'request' },
       } },
     ] } },
+    { $unionWith: { coll: 'recipe_shares', pipeline: [
+      { $match: pairFilter(actorId, peerId, 'sender_id', 'recipient_id') },
+      ...older,
+      ...newest,
+      { $lookup: { from: 'recipes', localField: 'recipe_id', foreignField: '_id', pipeline: [{ $project: { title: 1 } }], as: 'recipe' } },
+      { $project: {
+        created_at: 1, sender_id: 1, recipient_id: 1, recipe_id: 1, status: 1,
+        recipe_title: { $ifNull: [{ $arrayElemAt: ['$recipe.title', 0] }, '$recipe_title'] },
+        recipe_available: { $gt: [{ $size: '$recipe' }, 0] }, kind: { $literal: 'recipe_share' },
+      } },
+    ] } },
   ];
 }
 

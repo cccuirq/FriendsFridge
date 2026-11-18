@@ -161,6 +161,7 @@ function showAccount(user) {
   $('#conversation-messages').replaceChildren();
   $('#conversation-form').reset();
   $('#request-dialog').close();
+  $('#conversation-share-dialog').close();
   $('#account-menu').open = false;
   $('#account-menu').hidden = !user;
   $('.main-nav').hidden = !user;
@@ -316,6 +317,69 @@ function requestCard(row, state) {
   return card;
 }
 
+function recipeShareCard(row, state) {
+  const incoming = row.recipient_id === currentUser._id;
+  const card = document.createElement('div');
+  card.className = 'request-card recipe-share-card';
+  const title = document.createElement('strong');
+  title.textContent = 'Recipe invitation · ' + (row.recipe_title || 'Unavailable recipe');
+  const description = document.createElement('p');
+  description.className = 'muted';
+  const descriptions = {
+    pending: incoming ? 'Accept this invitation to add the recipe to Shared with me.' : 'Waiting for your friend to accept. You can cancel before they accept.',
+    accepted: incoming ? 'Added to Shared with me. You can remove it at any time.' : 'Your friend accepted this recipe.',
+    declined: 'This sharing invitation was declined.',
+    cancelled: 'The sender cancelled this sharing invitation.',
+    removed: 'The recipient removed this recipe from Shared with me.',
+  };
+  description.textContent = descriptions[row.status] || '';
+  const controls = document.createElement('div');
+  controls.className = 'actions';
+  controls.append(pill(row.status[0].toUpperCase() + row.status.slice(1), row.status));
+  async function transition(status) {
+    if (state.updating) return;
+    state.updating = true;
+    try {
+      await state.loading;
+      if (conversation !== state) return;
+      const result = await api('/api/recipes/shares/' + row._id, 'PATCH', { status });
+      if (conversation !== state) return;
+      state.items.set(row._id, { ...row, status: result.status });
+      renderMessages(state);
+    } finally {
+      state.updating = false;
+      if (conversation === state) refreshOpenConversation(state);
+    }
+  }
+  if (row.status === 'pending') {
+    if (incoming) {
+      if (state.canMessage && row.recipe_available) controls.append(action('Accept', () => transition('accepted')));
+      controls.append(action('Decline', () => transition('declined')));
+    } else controls.append(action('Cancel share', () => transition('cancelled')));
+  }
+  if (row.recipe_available && (!incoming || (row.status === 'accepted' && state.canMessage))) {
+    const view = document.createElement('a');
+    view.className = 'button secondary';
+    view.href = '#recipes/' + row.recipe_id;
+    view.textContent = 'View recipe';
+    controls.append(view);
+  }
+  card.append(title, description, controls);
+  if (row.status === 'accepted' && incoming) {
+    const confirmation = document.createElement('div');
+    confirmation.hidden = true;
+    const prompt = document.createElement('p');
+    prompt.textContent = 'Remove this recipe from Shared with me and your saved recipes?';
+    const buttons = document.createElement('div');
+    buttons.className = 'actions';
+    buttons.append(action('Remove shared recipe', () => transition('removed')), action('Cancel', () => { confirmation.hidden = true; }));
+    confirmation.append(prompt, buttons);
+    controls.append(action('Remove shared recipe', () => { confirmation.hidden = false; }));
+    card.append(confirmation);
+  }
+  return card;
+}
+
 function messageEntry(row, state) {
   const mine = row.sender_id === currentUser._id;
   const item = document.createElement('li');
@@ -336,6 +400,7 @@ function messageEntry(row, state) {
   meta.append(author, time);
   content.append(meta);
   if (row.kind === 'request') content.append(requestCard(row, state));
+  else if (row.kind === 'recipe_share') content.append(recipeShareCard(row, state));
   else {
     const text = document.createElement('p');
     text.className = 'message-text';
@@ -391,7 +456,7 @@ function renderMessages(state, { older = false, bottom = false } = {}) {
   const list = $('#conversation-messages');
   const history = $('#conversation-history');
   const items = Array.from(state.items.values()).sort((a, b) => a.created_at.localeCompare(b.created_at) || a._id.localeCompare(b._id));
-  const signature = JSON.stringify(items);
+  const signature = JSON.stringify([state.canMessage, items]);
   if (signature === state.signature) return;
   state.signature = signature;
   const wasNearBottom = nearLatestMessage();
@@ -411,16 +476,20 @@ function loadConversation(state, { older = false, silent = false } = {}) {
       const result = await api(conversationUrl(state.peerId) + cursor);
       if (conversation !== state) return;
       const rows = [...result.items];
+      const oldestLoaded = [...state.items.values()].sort((a, b) => a.created_at.localeCompare(b.created_at) || a._id.localeCompare(b._id))[0];
+      const beforeLoaded = (row) => row && oldestLoaded && (row.created_at < oldestLoaded.created_at || (row.created_at === oldestLoaded.created_at && row._id <= oldestLoaded._id));
       // Catch up across pages if more than one page arrived between refreshes.
       let page = result;
-      while (!older && state.items.size && page.next_before && !page.items.some((row) => state.items.has(row._id))) {
+      while (!older && state.items.size && page.next_before && !beforeLoaded(page.items.at(-1))) {
         page = await api(conversationUrl(state.peerId) + '?before=' + encodeURIComponent(page.next_before));
         if (conversation !== state) return;
         rows.push(...page.items);
       }
       state.peer = result.peer;
+      state.canMessage = result.can_message;
       $('#conversation-title').textContent = result.peer.display_name;
       $('#conversation-form').hidden = !result.can_message;
+      $('#conversation-share-recipe').hidden = !result.can_message;
       const fridgeLink = $('#conversation-fridge');
       fridgeLink.href = '#friends/' + state.peerId;
       fridgeLink.hidden = !result.can_message;
@@ -457,7 +526,7 @@ function directoryEntry(row) {
   let preview;
   if (row.latest) {
     const prefix = row.latest.sender_id === currentUser._id ? 'You: ' : '';
-    preview = prefix + (row.latest.kind === 'request' ? 'Ingredient request' : row.latest.text);
+    preview = prefix + (row.latest.kind === 'request' ? 'Ingredient request' : row.latest.kind === 'recipe_share' ? 'Recipe invitation · ' + (row.latest.recipe_title || 'Recipe') : row.latest.text);
   }
   return entry(row.peer, actions, { href: '#conversation/' + row._id, preview, peerId: row._id });
 }
@@ -605,15 +674,17 @@ function renderRoute(focus = false) {
   routeVersion++;
   $('#account-menu').open = false;
   $('#request-dialog').close();
+  $('#conversation-share-dialog').close();
   const hash = location.hash === '#activity' ? 'friends' : location.hash.slice(1);
   const shared = /^friends\/([0-9a-f-]{36})$/.exec(hash);
   const chat = /^conversation\/([0-9a-f-]{36})$/.exec(hash);
+  const recipe = /^recipes\/([0-9a-f-]{36})$/.exec(hash);
   const mainPages = ['my-fridge', 'recipes', 'friends', 'profile', 'invitations', 'recognition'];
-  const page = shared ? 'fridge' : chat ? 'conversation' : mainPages.includes(hash) ? hash : 'my-fridge';
+  const page = shared ? 'fridge' : chat ? 'conversation' : recipe ? 'recipes' : mainPages.includes(hash) ? hash : 'my-fridge';
   const activeTab = ['fridge', 'invitations', 'conversation'].includes(page) ? 'friends' : page;
   conversation = null;
   for (const panel of document.querySelectorAll('.page')) panel.hidden = panel.id !== page + '-page';
-  if (page === 'recipes') recipesPage.open();
+  if (page === 'recipes') recipesPage.open(recipe?.[1]);
   else recipesPage.reset();
   if (page === 'recognition') recognitionPage.open();
   if (page === 'my-fridge') inventoryPage.open();
@@ -640,6 +711,7 @@ function renderRoute(focus = false) {
     $('#conversation-messages').replaceChildren();
     $('#conversation-more').hidden = true;
     $('#conversation-fridge').hidden = true;
+    $('#conversation-share-recipe').hidden = true;
     $('#conversation-form').hidden = true;
     $('#conversation-form').reset();
     loadConversation(conversation);
@@ -727,6 +799,38 @@ function refreshLive() {
   if (!$('#friends-page').hidden) loadDirectory().catch(() => {});
   if (!$('#my-fridge-page').hidden) inventoryPage.refresh();
 }
+
+$('#conversation-share-recipe').addEventListener('click', (event) => run(event.currentTarget, async () => {
+  const state = conversation;
+  if (!state?.canMessage) return;
+  const result = await api('/api/recipes');
+  if (conversation !== state) return;
+  const owned = result.recipes.filter((recipe) => recipe.owned);
+  if (!owned.length) { notice('Create a recipe in Recipes before sharing it with your friend.'); return; }
+  const form = $('#conversation-share-form');
+  form.reset();
+  form.elements.recipe_id.replaceChildren(new Option('Choose your recipe', ''), ...owned.map((recipe) => new Option(recipe.title, recipe._id)));
+  $('#conversation-share-status').textContent = '';
+  $('#conversation-share-dialog').showModal();
+}));
+$('#conversation-share-close').addEventListener('click', () => $('#conversation-share-dialog').close());
+$('#conversation-share-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const state = conversation;
+  if (!state?.canMessage || state.sharing) return;
+  const recipeId = event.currentTarget.elements.recipe_id.value;
+  const control = event.submitter;
+  state.sharing = true;
+  control.disabled = true;
+  try {
+    await api('/api/recipes/' + recipeId + '/shares', 'POST', { recipient_id: state.peerId });
+    if (conversation !== state) return;
+    $('#conversation-share-dialog').close();
+    refreshOpenConversation(state);
+  } catch (error) {
+    if (conversation === state) $('#conversation-share-status').textContent = error.message;
+  } finally { state.sharing = false; control.disabled = false; }
+});
 function pollActivity() {
   if (!document.hidden) refreshLive();
 }

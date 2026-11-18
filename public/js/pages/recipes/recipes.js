@@ -119,7 +119,8 @@ export function createRecipesPage(root, { api, measure }) {
     clearPhoto();
     $('#recipe-input-items').replaceChildren();
     detailStatus.textContent = formStatus.textContent = status.textContent = '';
-    for (const button of [save, $('#recipe-delete-yes'), shareForm.querySelector('button'), form.querySelector('[type=submit]')]) button.disabled = false;
+    for (const button of [save, $('#recipe-delete-yes'), $('#recipe-remove-yes'), shareForm.querySelector('button'), form.querySelector('[type=submit]')]) button.disabled = false;
+    $('#recipe-remove-confirm').hidden = true;
     $('#recipe-delete-confirm').hidden = true;
     retry.hidden = true;
     create.disabled = true;
@@ -162,6 +163,8 @@ export function createRecipesPage(root, { api, measure }) {
     selected = recipe;
     $('#recipe-owner-actions').hidden = !recipe.owned;
     $('#recipe-delete-confirm').hidden = true;
+    $('#recipe-remove-shared').hidden = !recipe.shared;
+    $('#recipe-remove-confirm').hidden = true;
     show(detail);
     const title = $('#recipe-detail-title');
     title.textContent = recipe.title;
@@ -208,6 +211,7 @@ export function createRecipesPage(root, { api, measure }) {
       renderList();
       const recipe = data.recipes.find((item) => item._id === openId);
       if (recipe) showRecipe(recipe);
+      else if (openId) { show(browse); status.textContent = 'This recipe is no longer available. It may have been removed or the sharing invitation has not been accepted.'; }
     } catch (error) {
       if (token !== version) return;
       status.textContent = error.message;
@@ -291,7 +295,26 @@ export function createRecipesPage(root, { api, measure }) {
     if (!friend) return;
     action(event.submitter, detailStatus, async (current) => {
       await api(`${endpoint}/${selected._id}/shares`, 'POST', { recipient_id: recipient });
-      if (current()) detailStatus.textContent = `Recipe shared with ${friend.display_name}.`;
+      if (current()) location.hash = '#conversation/' + recipient;
+    });
+  });
+  $('#recipe-remove-shared').addEventListener('click', () => {
+    if (!busy && selected?.shared) { $('#recipe-remove-confirm').hidden = false; $('#recipe-remove-no').focus(); }
+  });
+  $('#recipe-remove-no').addEventListener('click', () => {
+    if (!busy) { $('#recipe-remove-confirm').hidden = true; $('#recipe-remove-shared').focus(); }
+  });
+  $('#recipe-remove-yes').addEventListener('click', () => {
+    const recipe = selected;
+    if (!recipe?.share_id) return;
+    action($('#recipe-remove-yes'), detailStatus, async (current) => {
+      await api(`${endpoint}/shares/${recipe.share_id}`, 'PATCH', { status: 'removed' });
+      if (!current()) return;
+      selected = undefined;
+      $('#recipe-remove-confirm').hidden = true;
+      show(browse);
+      await load();
+      if (current()) status.textContent = 'Recipe removed from Shared with me and Saved.';
     });
   });
   function openEditor(recipe) {
@@ -390,5 +413,5 @@ export function createRecipesPage(root, { api, measure }) {
     });
   });
 
-  return { reset, open() { reset(); load(); } };
+  return { reset, open(recipeId) { reset(); load(recipeId); } };
 }

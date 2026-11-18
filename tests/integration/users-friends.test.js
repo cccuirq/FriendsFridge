@@ -345,7 +345,7 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     assert.equal((await bob.request(photoPath)).status, 404);
     assert.equal((await bob.request(endpoint)).body.data.recipes.find((row) => row._id === photoId).image_url, undefined);
     const shareNow = new Date();
-    await db.collection('recipe_shares').insertOne({ _id: randomUUID(), recipe_id: photoId, sender_id: bobId, recipient_id: aliceId, message: '', created_at: shareNow });
+    await db.collection('recipe_shares').insertOne({ _id: randomUUID(), recipe_id: photoId, sender_id: bobId, recipient_id: aliceId, message: '', status: 'accepted', created_at: shareNow, updated_at: shareNow });
     assert.equal((await bob.request(editPath, 'DELETE')).status, 200);
     for (const collection of ['recipes', 'recipe_ingredients', 'saved_recipes', 'recipe_shares']) {
       assert.equal(await db.collection(collection).countDocuments(collection === 'recipes' ? { _id: photoId } : { recipe_id: photoId }), 0);
@@ -362,7 +362,14 @@ test('User & Friends HTTP workflows', { timeout: 240000 }, async (t) => {
     await alice.request('/api/friends/requests', 'POST', { user_id: bobId });
     assert.equal((await bob.request(`/api/friends/requests/${relationId}`, 'PATCH', { status: 'accepted' })).status, 200);
     for (let repeat = 0; repeat < 2; repeat++) {
-      assert.equal((await bob.request(`${endpoint}/${id}/shares`, 'POST', { recipient_id: aliceId })).status, 200);
+      const share = await bob.request(`${endpoint}/${id}/shares`, 'POST', { recipient_id: aliceId });
+      assert.equal(share.status, 200);
+      if (repeat === 0) {
+        assert.equal(share.body.data.status, 'pending');
+        assert.equal(await getRecipe(alice), undefined);
+        assert.equal((await alice.request(`${endpoint}/${id}/saved`, 'PUT')).status, 404);
+        assert.equal((await alice.request(`${endpoint}/shares/${share.body.data._id}`, 'PATCH', { status: 'accepted' })).status, 200);
+      }
       assert.equal((await alice.request(`${endpoint}/${id}/saved`, 'PUT')).status, 200);
     }
     const received = await getRecipe(alice);

@@ -257,6 +257,7 @@ a.person:hover strong { text-decoration: underline; text-underline-offset: 3px; 
 .pill { display: inline-block; width: fit-content; padding: 4px 8px; border: 1px solid var(--ink); border-radius: 16px; background: var(--mint); font-size: 12px; font-weight: 750; }
 .pill.pending { background: var(--yellow); }
 .pill.declined, .pill.cancelled { background: var(--paper); }
+.pill.removed { background: var(--paper); }
 .conversation-page {
   display: flex;
   flex-direction: column;
@@ -264,7 +265,8 @@ a.person:hover strong { text-decoration: underline; text-underline-offset: 3px; 
   min-height: 315px;
 }
 .conversation-page > .back-link { align-self: start; }
-.conversation-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.conversation-header { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.conversation-header .actions { flex-shrink: 1; }
 .conversation-header h1 { margin: 0; font-size: clamp(24px, 5vw, 37px); }
 .conversation-header .button { flex: none; }
 .conversation-history { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 6px; overflow-anchor: none; }
@@ -279,6 +281,9 @@ a.person:hover strong { text-decoration: underline; text-underline-offset: 3px; 
 .message-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .request-card { width: fit-content; max-width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid #9c79e6; border-radius: 6px; background: var(--paper); }
 .request-card .actions { margin-top: 8px; }
+.recipe-share-card .muted { margin: 8px 0 12px; }
+#recipe-remove-shared { margin-top: 16px; }
+#conversation-share-form select { display: block; width: 100%; margin-top: 6px; padding: 10px; border: 1px solid #8b7c6e; border-radius: 8px; background: #fff; color: inherit; font: inherit; }
 .request-card button { min-height: 33px; padding: 4px 8px; font-size: 13px; box-shadow: none; }
 .conversation-form { display: flex; align-items: end; gap: 9px; padding: 10px; border: 2px solid var(--ink); border-radius: 14px; background: var(--paper); }
 .conversation-form textarea { margin: 0; min-width: 0; min-height: 40px; max-height: 110px; resize: none; font-size: 16px; }

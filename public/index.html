@@ -117,7 +117,10 @@
         <a class="back-link" href="#friends">← Friends</a>
         <header class="conversation-header">
           <h1 id="conversation-title" tabindex="-1">Conversation</h1>
-          <a id="conversation-fridge" class="button secondary" hidden>View fridge →</a>
+          <div class="actions">
+            <button id="conversation-share-recipe" type="button" class="secondary" hidden>Share recipe</button>
+            <a id="conversation-fridge" class="button secondary" hidden>View fridge →</a>
+          </div>
         </header>
         <div id="conversation-history" class="conversation-history" role="region" aria-label="Message history" tabindex="0">
           <button type="button" id="conversation-more" class="secondary" hidden>Load older messages</button>
@@ -128,6 +131,18 @@
           <textarea name="text" aria-label="Message" placeholder="Write a message…" rows="1" maxlength="1000" required></textarea>
           <button type="submit">Send</button>
         </form>
+        <dialog id="conversation-share-dialog" aria-labelledby="conversation-share-title">
+          <form id="conversation-share-form">
+            <h2 id="conversation-share-title">Share a recipe</h2>
+            <p class="muted">Your friend will receive an invitation in this chat. The recipe is added to Shared with me only after they accept.</p>
+            <label>Your recipe<select name="recipe_id" required></select></label>
+            <div class="actions">
+              <button type="submit">Send invitation</button>
+              <button id="conversation-share-close" type="button" class="secondary">Cancel</button>
+            </div>
+            <p id="conversation-share-status" class="muted" role="status"></p>
+          </form>
+        </dialog>
       </section>
 
       <section id="fridge-page" class="page" aria-labelledby="fridge-title" hidden>
@@ -273,6 +288,14 @@
               <label>Share with a friend <select name="recipient" aria-label="Share with a friend" required></select></label>
               <button type="submit" class="secondary">Share recipe</button>
             </form>
+            <button id="recipe-remove-shared" type="button" class="secondary" hidden>Remove from shared recipes</button>
+            <div id="recipe-remove-confirm" hidden>
+              <p>Remove this recipe from Shared with me and your saved recipes? The author's original recipe will stay available to them.</p>
+              <div class="actions">
+                <button id="recipe-remove-yes" type="button">Remove shared recipe</button>
+                <button id="recipe-remove-no" type="button" class="secondary">Cancel</button>
+              </div>
+            </div>
             <p id="recipe-action-status" class="muted" role="status"></p>
           </div>
         </section>
