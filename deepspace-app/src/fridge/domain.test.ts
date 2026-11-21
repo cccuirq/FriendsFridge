@@ -34,4 +34,18 @@ describe('fridge domain invariants',()=>{
     for(let i=0;i<10;i++)run('alice','/api/_vision/quota','POST')
     expect(()=>run('alice','/api/_vision/quota','POST')).toThrow('Daily cloud recognition limit')
   })
+  it('recommends borrowing only from accepted friends with shared stock, scaled to servings',()=>{
+    const a=state.profiles[0],b=state.profiles[1],ingredient=state.ingredients[0]
+    const invitation=run('alice','/api/friends/requests','POST',{user_id:b._id}).data as {_id:string}
+    run('bob',`/api/friends/requests/${invitation._id}`,'PATCH',{status:'accepted'})
+    run('bob','/api/inventory','POST',{batch_id:crypto.randomUUID(),ingredient_id:ingredient._id,quantity:400,visibility:'private'})
+    const recipe=run('alice','/api/recipes','POST',{title:'Shared eggs',instructions:'Cook',servings:2,items:[{ingredient_id:ingredient._id,quantity:200}]}).data as {_id:string}
+    const find=()=>((run('alice','/api/recipes?servings=4').data as {recipes:Array<{_id:string;can_borrow:boolean;items:Array<{required:number;base_required:number;borrow_sources:unknown[]}>}>}).recipes.find(r=>r._id===recipe._id)!)
+    expect(find().can_borrow).toBe(false)
+    run('bob',`/api/inventory/${state.stock[0]._id}`,'PATCH',{visibility:'friends'})
+    expect(find().can_borrow).toBe(true);expect(find().items[0]).toMatchObject({required:400,base_required:200})
+    run('alice',`/api/friends/${b._id}`,'DELETE')
+    expect(find().can_borrow).toBe(false);expect(find().items[0].borrow_sources).toEqual([])
+    expect(a._id).not.toBe(b._id)
+  })
 })

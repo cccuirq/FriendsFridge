@@ -230,9 +230,16 @@ export function command(s: State, subject: string, method: string, url: URL, bod
   if (path === '/api/recipes') {
     if (method === 'GET') {
       const rows = s.recipes.filter(canView).map(r => {
-        const items = r.items.map(i => { const ingredient = food(i.ingredient_id)!; const available = stock(me,i.ingredient_id)?.quantity || 0; return { ingredient_id: i.ingredient_id, name: ingredient.name, unit: ingredient.default_unit, required: i.quantity, available, missing: Math.max(0,i.quantity - available) } })
+        const planned = url.searchParams.get('servings') ? quantity(Number(url.searchParams.get('servings')),1) : r.servings
+        if(planned>20 && url.searchParams.has('servings')) fail(400,'INVALID_INPUT','Choose 1-20 servings.')
+        const items = r.items.map(i => {
+          const ingredient = food(i.ingredient_id)!, available = stock(me,i.ingredient_id)?.quantity || 0
+          const required = quantity(Math.ceil(i.quantity * planned / r.servings),1)
+          const borrow_sources = s.stock.filter(row=>row.ingredient_id===i.ingredient_id&&row.visibility==='friends'&&row.quantity>0&&isFriend(row.user_id)).map(row=>({user:publicProfile(person(row.user_id)!),quantity:row.quantity}))
+          return {ingredient_id:i.ingredient_id,name:ingredient.name,unit:ingredient.default_unit,base_required:i.quantity,required,available,missing:Math.max(0,required-available),borrow_sources}
+        })
         const share = s.shares.find(a => a.recipe_id === r._id && a.sender_id === r.author_id && a.recipient_id === me && a.status === 'accepted' && isFriend(a.sender_id))
-        return { _id: r._id, title: r.title, description: r.description, instructions: r.instructions, servings: r.servings, items, missing_count: items.filter(i => i.missing > 0).length, owned: r.author_id === me, saved: s.saves.some(a => a.user_id === me && a.recipe_id === r._id), shared: Boolean(share), ...(share ? { share_id: share._id } : {}), ...(r.image_key ? { image_url: `/api/recipes/${r._id}/image` } : {}) }
+        return { _id: r._id, title: r.title, description: r.description, instructions: r.instructions, servings: r.servings, planned_servings:planned, can_borrow:items.some(i=>i.missing>0)&&items.every(i=>i.borrow_sources.reduce((sum,row)=>sum+row.quantity,0)>=i.missing), items, missing_count: items.filter(i => i.missing > 0).length, owned: r.author_id === me, saved: s.saves.some(a => a.user_id === me && a.recipe_id === r._id), shared: Boolean(share), ...(share ? { share_id: share._id } : {}), ...(r.image_key ? { image_url: `/api/recipes/${r._id}/image` } : {}) }
       }).sort((a,b) => a.missing_count - b.missing_count || a.missing_count / a.items.length - b.missing_count / b.items.length || a.title.localeCompare(b.title))
       return { data: { recipes: rows, ingredients: s.ingredients, friends: s.profiles.filter(p => isFriend(p._id)).map(publicProfile) } }
     }

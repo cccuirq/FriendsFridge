@@ -1,4 +1,8 @@
-# Verified deployment
+# Historical migration deployment
+
+The latest verified business release and current evidence are recorded in
+[docs/deepspace-evidence.md](docs/deepspace-evidence.md). The entries below
+retain the earlier migration release for recovery history.
 
 - Verified on November 21, 2026.
 - Live: https://friends-fridge-jianghui.app.space

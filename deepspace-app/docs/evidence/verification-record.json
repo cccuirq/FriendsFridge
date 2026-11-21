@@ -1,0 +1,39 @@
+{
+  "verified_date": "2026-11-21",
+  "timezone": "America/Chicago",
+  "live_url": "https://friends-fridge-jianghui.app.space",
+  "release_id": "rel_01M7ZX2TWMS8R43NCVSVESSAAE",
+  "cloud_source_commit": "ae55190629107ab1e06d260d847532c46f4c95ed",
+  "original_cs409_base": "9f1e164",
+  "checks": {
+    "typecheck": "passed",
+    "production_build": "passed",
+    "unit_tests": {
+      "passed": 22,
+      "failed": 0
+    },
+    "local_browser_api": {
+      "passed": 9,
+      "failed": 0
+    },
+    "final_production_browser_api": {
+      "passed": 9,
+      "failed": 0,
+      "duration_seconds": 58.0,
+      "real_shopping_providers": true
+    },
+    "error_log_window_minutes": 10,
+    "error_log_event_count": 0
+  },
+  "limits": [
+    "Automated/agent verification, not applicant personal verification.",
+    "Browser geolocation uses public synthetic Chicago test coordinates.",
+    "No claim of local-store checkout pricing, tax/shipping inclusion or full accessibility compliance.",
+    "Dedicated manual-review browser unavailable."
+  ],
+  "commands": {
+    "unit": "npm run validate",
+    "local": "npx deepspace test run all --port 5198",
+    "production": "FRIDGE_TEST_URL=https://friends-fridge-jianghui.app.space FRIDGE_SHOPPING_LIVE=1 npx playwright test --config tests/playwright.config.ts --workers 2"
+  }
+}

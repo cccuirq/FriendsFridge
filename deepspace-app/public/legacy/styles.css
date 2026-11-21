@@ -358,7 +358,7 @@ dialog .actions { justify-content: flex-end; }
   --door-depth: 32px;
   --door-open-angle: -94deg;
   position: absolute; z-index: 2; inset: 98px 12px 12px;
-  transform: translateZ(var(--door-depth)) rotateY(-2deg); transform-style: preserve-3d;
+  transform: translateZ(var(--door-depth)) rotateY(0deg); transform-style: preserve-3d;
   transform-origin: 0 50% calc(-1 * var(--door-depth)); pointer-events: none;
 }
 .fridge-door-face {
@@ -461,7 +461,13 @@ dialog .actions { justify-content: flex-end; }
 }
 .fridge-handle::before { top: -7px; }
 .fridge-handle::after { bottom: -7px; }
-.fridge-open .fridge-door { transform: translateZ(var(--door-depth)) rotateY(var(--door-open-angle)); animation: open-fridge 3.2s .65s cubic-bezier(.32,.08,.24,1) both; }
+.fridge-door { transition: transform 3.2s cubic-bezier(.32,.08,.24,1); }
+.fridge-open .fridge-door { transform: translateZ(var(--door-depth)) rotateY(var(--door-open-angle)); }
+.fridge-door-face, .fridge-door-liner, .fridge-door::before { pointer-events: auto; cursor: pointer; }
+.fridge-door:focus-visible .fridge-door-face, .fridge-door:focus-visible .fridge-door-liner { outline: 3px solid #7451b4; outline-offset: 4px; }
+.fridge-door-face { background: radial-gradient(ellipse at 14% 5%, #ffffff60, transparent 52%), linear-gradient(110deg, #cde6db, #b6d9cb 45%, #9cbeaf); }
+.fridge-door-liner { background: linear-gradient(110deg, #bdd8c8, #d2e8dc 35%, #c2dfce 80%, #9cbeaf); }
+.fridge-door-liner > span { background: linear-gradient(#6e967942, #d5eadb 20%, #bddbc6 75%, #a3c5ae); border-color: #8eaf97; border-bottom-color: #a3c5ae; }
 @keyframes open-fridge {
   0%, 8% { transform: translateZ(var(--door-depth)) rotateY(-2deg); }
   24% { transform: translateZ(var(--door-depth)) rotateY(-12deg); }
@@ -469,6 +475,55 @@ dialog .actions { justify-content: flex-end; }
   100% { transform: translateZ(var(--door-depth)) rotateY(var(--door-open-angle)); }
 }
 .inventory-footnote { margin-top: 12px; }
+.meal-planner-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 22px 0; }
+.meal-planner-heading .eyebrow { margin: 0 0 6px; }
+.meal-planner-heading p { max-width: 590px; }
+.servings-control { display: flex; flex: none; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+.servings-control input { width: 64px; margin: 0; padding: 10px; background: var(--paper); }
+.meal-paths { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; padding: 7px; border: 1px solid var(--line); border-radius: 16px; background: #eee8da; }
+.meal-paths button { min-height: 49px; padding: 10px 8px; border: 1px solid transparent; border-radius: 10px; background: transparent; box-shadow: none; font-size: 13px; }
+.meal-paths button[aria-pressed="true"] { background: var(--mint); border-color: #6f937b; box-shadow: 0 2px 0 #78918050; }
+#meal-mode-note { min-height: 42px; margin: 12px 4px 18px; }
+.budget-panel { padding: 24px; margin: 0 0 24px; border: 1.5px solid #a3b6a0; border-radius: 18px; background: linear-gradient(120deg,#edf5e9,#fffdf4 65%); }
+.budget-intro h2 { margin: 0 0 6px; font-size: 23px; }
+.budget-intro p { margin: 0 0 18px; }
+.budget-controls { display: grid; grid-template-columns: 1fr 1.4fr auto; align-items: end; gap: 14px; }
+.budget-controls label { margin: 0; font-size: 13px; }
+.budget-controls input, .budget-controls select { width: 100%; margin-top: 7px; padding: 11px; border: 1px solid #a59b88; border-radius: 9px; background: #fffefa; color: var(--ink); font: inherit; }
+.budget-controls button { min-height: 44px; padding: 10px 14px; font-size: 13px; }
+.budget-fine-print { margin: 13px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.nearby-shops { margin-top: 18px; padding-top: 15px; border-top: 1px solid #d4ddcd; }
+.nearby-shops summary, #meal-unpriced summary { cursor: pointer; font-size: 13px; font-weight: 700; }
+.nearby-shops .secondary { font-size: 12px; }
+.city-form { display: flex; align-items: end; gap: 12px; margin-top: 16px; }
+.city-form label { flex: 1; margin: 0; font-size: 13px; }
+.city-form input { margin-bottom: 0; }
+.nearby-shop-list { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.nearby-shop-list li { display: block; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.nearby-shop-list a { color: #365e43; font-size: 13px; font-weight: 700; }
+.nearby-shop-list small { display: block; margin-top: 5px; color: var(--muted); line-height: 1.5; }
+.collection-filters { margin-bottom: 18px; }
+.collection-filters button { font-size: 12px; padding: 7px 13px; }
+.meal-card-note { padding: 9px 11px; border-radius: 9px; background: #e4efdf; color: #36553e; font-size: 12px; font-weight: 650; line-height: 1.6; }
+.borrow-food-option, .purchase-food-option { flex-basis: 100%; width: 100%; margin-top: 12px; padding: 13px; border: 1px solid #ccd9c3; border-radius: 10px; background: #f0f5e9; }
+.borrow-food-option { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.borrow-food-option label { flex: 1; min-width: 150px; margin: 0; font-size: 12px; }
+.borrow-food-option input { width: 100px; margin-bottom: 0; }
+.borrow-food-option button { font-size: 12px; }
+.borrow-food-option small { flex-basis: 100%; color: var(--muted); }
+.purchase-food-option a { color: #365e43; font-weight: 650; font-size: 13px; }
+.purchase-food-option small { display: block; margin-top: 7px; line-height: 1.7; color: var(--muted); }
+#recipe-ingredients > li:has(.borrow-food-option), #recipe-ingredients > li:has(.purchase-food-option) { flex-wrap: wrap; }
+#meal-unpriced li { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+@media(max-width:700px) {
+  .meal-planner-heading { align-items: start; flex-direction: column; gap: 12px; }
+  .meal-paths { grid-template-columns: 1fr 1fr; }
+  .budget-panel { padding: 17px; }
+  .budget-controls { grid-template-columns: 1fr; }
+  .budget-controls button { width: 100%; }
+  .city-form { flex-direction: column; align-items: stretch; }
+  .nearby-shop-list { grid-template-columns: 1fr; }
+}
 [data-stock-error] { color: #9c2e26; }
 [data-stock-error]:empty, [data-stock-status]:empty { display: none; }
 [data-stock-form] select { display: block; width: 100%; margin-top: 6px; padding: 10px; border: 1px solid #8b7c6e; border-radius: 8px; background: white; color: inherit; font: inherit; }
@@ -482,7 +537,7 @@ select:focus-visible { outline: 3px solid #7451b4; outline-offset: 3px; }
   .fridge-door-face { padding: 24px; }
   .fridge-note { font-size: 18px; }
 }
-@media (prefers-reduced-motion: reduce) { .fridge-open .fridge-door { transform: translateZ(var(--door-depth)) rotateY(var(--door-open-angle)); animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fridge-door { transition: none; } }
 
 /* Locally cached default photos and their no-image fallback. */
 .food-picture { position: relative; display: inline-grid; flex: none; place-items: center; width: 72px; height: 72px; overflow: hidden; border-radius: 14px; background: #fffdf7; vertical-align: middle; }

@@ -4,6 +4,7 @@ import type { AppContext } from '../../worker'
 import { resolveAuth } from '../server/http-routes'
 import { createActionTools } from '../server/action-routes'
 import { recognizeIngredients } from './vision'
+import {handleShopping} from './shopping'
 
 export function registerFridgeRoutes(app: Hono<AppContext>) {
   // Paid calls are server controlled, with a bounded model and a daily quota.
@@ -21,6 +22,12 @@ export function registerFridgeRoutes(app: Hono<AppContext>) {
     if (!['GET','HEAD'].includes(c.req.method)) {
       const origin = c.req.header('Origin')
       if ((origin && origin !== new URL(c.req.url).origin) || c.req.header('Sec-Fetch-Site') === 'cross-site') return c.json({ error: { code: 'CROSS_ORIGIN', message: 'Cross-origin requests are not allowed.' } },403)
+    }
+    if(path.startsWith('/api/recipes/shopping/')) {
+      const token=c.req.header('Authorization')?.slice(7)
+      if(!token)return c.json({error:{code:'UNAUTHENTICATED',message:'Please sign in again.'}},401)
+      const params=c.req.method==='GET'?{}:await c.req.json<Record<string,unknown>>()
+      return handleShopping({userId:auth.userId,callerJwt:token,env:c.env,tools:createActionTools(c.env,auth.userId,token),params},path,c.req.method)
     }
     if (path === '/api/recognition' && c.req.method === 'POST') {
       const token = c.req.header('Authorization')?.slice(7)

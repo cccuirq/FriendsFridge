@@ -11,6 +11,11 @@ See its [submission note](deepspace-app/SUBMISSION.md) for the architecture,
 tradeoffs, team provenance and personal verification checklist. The setup below
 continues to describe the original Node.js/MongoDB application.
 
+Live submission: [friends-fridge-jianghui.app.space](https://friends-fridge-jianghui.app.space).
+Start the evaluation app from `deepspace-app/`, using the Node/npm versions in
+its package.json. See the [DeepSpace evidence matrix](deepspace-app/docs/deepspace-evidence.md)
+and [prioritized optimization review](deepspace-app/docs/optimization-review.md).
+
 ## Project idea
 
 Friend’s Fridge helps users keep track of groceries, decide what to cook, and ask friends for ingredients they’re missing. If you need an egg for pancakes, you can check a friend’s shared fridge and send a request from the app.

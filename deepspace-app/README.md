@@ -103,3 +103,21 @@ the identity; the latter destroys app data. Local `.dev.vars`, `.deepspace`,
 See [SUBMISSION.md](SUBMISSION.md) for the portal note and an honest applicant
 verification checklist. See the retained `public/legacy/assets/defaults/`
 manifests and gallery for image attribution.
+
+## Meal planning update
+
+The fridge now stays closed until its door is clicked and toggles closed on a
+second door click. The Recipes page adds serving-aware **Borrow from friends**
+and **Buy within budget** modes. Budget lookups use current public Amazon US
+listings through a bounded native Apify integration; nearby shops are a separate
+optional location lookup, with a manual city alternative. Online prices are
+explicitly distinguished from unavailable local-store prices. See
+[meal-planning.md](docs/meal-planning.md) for calculation, privacy, caching,
+cost limits and provider tradeoffs.
+
+For evaluation, start with the Chinese [requirements and implementation
+evidence](docs/deepspace-evidence.md), including the release/commit, code links,
+test results, live screenshots and a clear division of agent work and personal
+verification. The [optimization review](docs/optimization-review.md) records
+the remaining improvements by priority; these are recommendations, not claims
+that every item has already been implemented.

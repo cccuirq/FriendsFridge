@@ -10,6 +10,26 @@ function scaled(value, minimum) {
 
 export function createInventoryPage(root, { api, measure }) {
   const $ = (selector) => root.querySelector(selector);
+  const door = $('.fridge-door');
+  const interior = $('.fridge-inside');
+  interior.inert = true;
+  let doorMoving = false;
+  function toggleDoor() {
+    if (doorMoving) return;
+    const opening = !root.classList.contains('fridge-open');
+    doorMoving = true;
+    root.classList.toggle('fridge-open', opening);
+    interior.inert = !opening;
+    door.setAttribute('aria-expanded', String(opening));
+    door.setAttribute('aria-label', opening ? 'Close fridge door' : 'Open fridge door');
+    const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 3200;
+    setTimeout(() => { doorMoving = false; }, duration);
+  }
+  door.addEventListener('click', event => { event.stopPropagation(); toggleDoor(); });
+  door.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleDoor(); }
+  });
+
   const dialog = $('[data-stock-dialog]');
   const form = $('[data-stock-form]');
   const status = $('[data-stock-status]');
@@ -18,7 +38,6 @@ export function createInventoryPage(root, { api, measure }) {
   let editing;
   let pending;
   let busy = false;
-  let opened = false;
   let refreshing = false;
   const ingredient = () => catalog.find((item) => item.name.toLowerCase() === form.elements.ingredient.value.trim().toLowerCase());
   const error = (message = '') => { $('[data-stock-error]').textContent = message; };
@@ -152,7 +171,7 @@ export function createInventoryPage(root, { api, measure }) {
 
   async function openPage() {
     const current = ++version;
-    if (!opened) { root.classList.remove('fridge-open'); void root.offsetWidth; root.classList.add('fridge-open'); opened = true; }
+    // The door opens only through an explicit door click or keyboard action.
     setBusy(true); status.textContent = 'Loading your fridge…';
     try {
       const [, ingredients] = await Promise.all([load(), api('/api/ingredients')]);
@@ -175,7 +194,7 @@ export function createInventoryPage(root, { api, measure }) {
     reset(accountChanged = false) {
       version++; dialog.close(); pending = undefined; editing = undefined; busy = false; catalog = [];
       $('[data-stock]').replaceChildren(); status.textContent = ''; $('[data-stock-empty]').hidden = true;
-      if (accountChanged) { opened = false; root.classList.remove('fridge-open'); }
+      if (accountChanged) { doorMoving = false; interior.inert = true; root.classList.remove('fridge-open'); door.setAttribute('aria-expanded','false'); door.setAttribute('aria-label','Open fridge door'); }
     },
   };
 }

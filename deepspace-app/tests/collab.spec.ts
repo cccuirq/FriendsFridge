@@ -108,3 +108,96 @@ test('two native accounts complete the full sharing journey', async ({users}) =>
   }
   expect(errors).toEqual([])
 })
+
+test('manual fridge door, friend borrowing and meal-planner layout',async({users})=>{
+  test.setTimeout(240000)
+  const [a,b]=await users(2)
+  await ready(a.page,'a');await ready(b.page,'b')
+  await a.page.emulateMedia({reducedMotion:'reduce'})
+  const door=a.page.getByRole('button',{name:'Open fridge door',exact:true})
+  await expect(door).toHaveAttribute('aria-expanded','false')
+  await a.page.locator('.fridge-freezer').click()
+  await expect(door).toHaveAttribute('aria-expanded','false')
+  await a.page.locator('.fridge-door-face').click()
+  const close=a.page.getByRole('button',{name:'Close fridge door',exact:true})
+  await expect(close).toHaveAttribute('aria-expanded','true')
+  await a.page.locator('.fridge-inside').click()
+  await expect(close).toHaveAttribute('aria-expanded','true')
+  const box=await a.page.locator('.fridge-door-liner').boundingBox()
+  expect(box).toBeTruthy()
+  await a.page.mouse.click(box!.x+box!.width-14,box!.y+box!.height/2)
+  await expect(a.page.getByRole('button',{name:'Open fridge door',exact:true})).toHaveAttribute('aria-expanded','false')
+  const alice=(await api(a.page,'/api/users/me')).data,bob=(await api(b.page,'/api/users/me')).data
+  const food=(await api(a.page,'/api/ingredients')).data.find((r:{name:string})=>r.name==='flour')
+  const priorA=(await api(a.page,'/api/inventory')).data.find((r:{ingredient_id:string})=>r.ingredient_id===food._id)
+  const priorB=(await api(b.page,'/api/inventory')).data.find((r:{ingredient_id:string})=>r.ingredient_id===food._id)
+  const testTitle=`Budget flour QA ${Date.now().toString(36)}`
+  let rid:string|undefined
+  try {
+  if(priorA)expect((await api(a.page,`/api/inventory/${priorA._id}`,'PATCH',{quantity:0,expected_quantity:priorA.quantity})).status).toBe(200)
+  const existingFriends=(await api(a.page,'/api/friends')).data
+  if(existingFriends.some((row:{user:{_id:string}})=>row.user._id===bob._id))await api(a.page,`/api/friends/${bob._id}`,'DELETE')
+  const invite=await api(a.page,'/api/friends/requests','POST',{user_id:bob._id})
+  expect(invite.status).toBe(201)
+  expect((await api(b.page,`/api/friends/requests/${invite.data._id}`,'PATCH',{status:'accepted'})).status).toBe(200)
+  expect((await api(b.page,'/api/inventory','POST',{batch_id:crypto.randomUUID(),ingredient_id:food._id,quantity:50000,visibility:'friends'})).status).toBe(200)
+  const source=(await api(b.page,'/api/inventory')).data.find((r:{ingredient_id:string})=>r.ingredient_id===food._id)
+  expect((await api(b.page,`/api/inventory/${source._id}`,'PATCH',{visibility:'friends'})).status).toBe(200)
+  const recipe=await api(a.page,'/api/recipes','POST',{title:testTitle,instructions:'Check quantities before cooking.',servings:1,items:[{ingredient_id:food._id,quantity:10000}]})
+  expect(recipe.status).toBe(201)
+  rid=recipe.data._id
+  expect((await api(a.page,'/api/recipes?servings=2')).data.recipes.find((row:{_id:string})=>row._id===rid).can_borrow).toBe(true)
+  await a.page.locator('.main-nav a[href="#recipes"]').click()
+  await a.page.getByRole('button',{name:'Borrow from friends',exact:true}).click()
+  await a.page.getByRole('button',{name:`View recipe: ${testTitle}`,exact:true}).click({timeout:15000})
+  await expect(a.page.locator('.borrow-food-option')).toContainText(bob.display_name)
+  await a.page.locator('.borrow-food-option').getByRole('button',{name:'Ask to borrow'}).click()
+  await expect(a.page.locator('.borrow-food-option')).toContainText('Request sent')
+  const requests=(await api(a.page,'/api/friends/ingredient-requests')).data
+  const request=requests.find((r:{requester_id:string;owner_id:string;ingredient_id:string;status:string})=>r.requester_id===alice._id&&r.owner_id===bob._id&&r.ingredient_id===food._id&&r.status==='pending')
+  expect(request.quantity).toBe(20000)
+  await api(a.page,`/api/friends/ingredient-requests/${request._id}`,'PATCH',{status:'cancelled'})
+  await a.page.locator('#recipe-detail [data-recipe-back]').click()
+  await a.page.getByRole('button',{name:'Buy within budget',exact:true}).click()
+  await expect(a.page.locator('#budget-panel')).toBeVisible()
+  await expect(a.page.locator('#budget-panel')).toContainText('No Prime')
+  await a.page.screenshot({path:'.deepspace/meal-planner-desktop.png',fullPage:true})
+  if(process.env.FRIDGE_SHOPPING_LIVE==='1') {
+    await a.page.locator('#meal-budget').fill('20.00')
+    const firstResponse=a.page.waitForResponse(response=>response.url().endsWith('/api/recipes/shopping/quote')&&response.request().method()==='POST')
+    await a.page.getByRole('button',{name:'Find meals in budget'}).click()
+    const response=await firstResponse,started=await response.json()
+    if(started.data?.job_id) {
+      expect((await api(b.page,`/api/recipes/shopping/jobs/${started.data.job_id}`)).status).toBe(404)
+      const replay=await api(a.page,'/api/recipes/shopping/quote','POST',response.request().postDataJSON())
+      expect(replay.data.job_id).toBe(started.data.job_id)
+    }
+    await expect(a.page.locator('#meal-budget-status')).toContainText(/Listings checked|No estimated prices were used/,{timeout:180000})
+    await expect(a.page.locator('#meal-budget-status')).toContainText('Listings checked')
+    await a.page.getByRole('button',{name:`View recipe: ${testTitle}`,exact:true}).click({timeout:15000})
+    await expect(a.page.locator('.purchase-food-option')).toContainText(/all.?purpose flour/i)
+    await a.page.screenshot({path:'.deepspace/meal-planner-live-prices.png',fullPage:true})
+    await a.page.locator('#recipe-detail [data-recipe-back]').click()
+    await a.page.locator('.nearby-shops summary').click()
+    await a.page.locator('#meal-city').fill('Chicago, US')
+    await a.page.getByRole('button',{name:'Find nearby shops',exact:true}).click()
+    await expect(a.page.locator('#meal-location-status')).toContainText('nearby listings',{timeout:180000})
+    await expect(a.page.locator('#meal-shops li').first()).toBeVisible()
+    await a.page.screenshot({path:'.deepspace/meal-planner-nearby.png',fullPage:true})
+    await a.page.context().grantPermissions(['geolocation'])
+    await a.page.context().setGeolocation({latitude:41.88,longitude:-87.62})
+    await a.page.getByRole('button',{name:'Use my location',exact:true}).click()
+    await expect(a.page.locator('#meal-location-status')).toContainText('nearby listings',{timeout:60000})
+  }
+  await a.page.setViewportSize({width:390,height:844})
+  await a.page.screenshot({path:'.deepspace/meal-planner-mobile.png',fullPage:true})
+  expect(await a.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false)
+  } finally {
+    if(rid)await api(a.page,`/api/recipes/${rid}`,'DELETE')
+    await api(a.page,`/api/friends/${bob._id}`,'DELETE')
+    for(const [page,prior] of [[a.page,priorA],[b.page,priorB]] as const) {
+      const current=(await api(page,'/api/inventory')).data.find((row:{ingredient_id:string})=>row.ingredient_id===food._id)
+      if(current)await api(page,`/api/inventory/${current._id}`,prior?'PATCH':'DELETE',prior?{quantity:prior.quantity,expected_quantity:current.quantity,visibility:prior.visibility}:{expected_quantity:current.quantity})
+    }
+  }
+})

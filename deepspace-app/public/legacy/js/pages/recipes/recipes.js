@@ -1,4 +1,5 @@
 import { recipeFigure } from '../../food-images.js';
+import { createMealPlanner } from './meal-planner.js';
 const plural = (count, label) => `${count} ${label}${count === 1 ? '' : 's'}`;
 const titleCase = (name) => name.charAt(0).toUpperCase() + name.slice(1);
 const endpoint = '/api/recipes';
@@ -43,6 +44,10 @@ export function createRecipesPage(root, { api, measure }) {
   let busy = false;
   let editing;
   let removeImage = false;
+  const planner = createMealPlanner(root, { api, measure, changed: reason => {
+    if (reason === 'servings') { selected = undefined; show(browse); load(); }
+    else renderList();
+  } });
 
   function showExistingPhoto() {
     if (editing?.image_url && !removeImage) {
@@ -102,6 +107,7 @@ export function createRecipesPage(root, { api, measure }) {
   }
 
   function reset() {
+    planner.reset();
     version++;
     data = selected = undefined;
     editing = undefined;
@@ -134,8 +140,8 @@ export function createRecipesPage(root, { api, measure }) {
       if (filter === 'all') return true;
       if (filter === 'ready') return recipe.items.length > 0 && recipe.missing_count === 0;
       return recipe[filter];
-    });
-    status.textContent = visible.length ? plural(visible.length, 'recipe') : emptyMessages[filter];
+    }).filter(recipe => planner.includes(recipe)).sort((a, b) => planner.compare(a, b));
+    status.textContent = visible.length ? plural(visible.length, 'recipe') : planner.message() || emptyMessages[filter];
     results.replaceChildren(...visible.map((recipe) => {
       const card = $('#recipe-card').content.firstElementChild.cloneNode(true);
       const ready = recipe.items.length > 0 && recipe.missing_count === 0;
@@ -144,12 +150,13 @@ export function createRecipesPage(root, { api, measure }) {
         ready,
       ));
       card.querySelector('h2').textContent = recipe.title;
-      card.querySelector('p').textContent = recipe.description || plural(recipe.servings, 'serving');
+      card.querySelector('p').textContent = recipe.description || plural(recipe.planned_servings || recipe.servings, 'serving');
       const button = card.querySelector('button');
       button.dataset.recipeId = recipe._id;
       button.setAttribute('aria-label', 'View recipe: ' + recipe.title);
       button.addEventListener('click', () => showRecipe(recipe));
       card.prepend(recipeFigure(recipe));
+      planner.decorate(card, recipe);
       return card;
     }));
   }
@@ -168,7 +175,7 @@ export function createRecipesPage(root, { api, measure }) {
     show(detail);
     const title = $('#recipe-detail-title');
     title.textContent = recipe.title;
-    $('#recipe-detail-meta').textContent = plural(recipe.servings, 'serving');
+    $('#recipe-detail-meta').textContent = `${plural(recipe.planned_servings || recipe.servings, 'serving')} · Quantities adjusted to your plan`;
     $('#recipe-description').textContent = recipe.description;
     $('#recipe-description').hidden = !recipe.description;
     const illustration = $('#recipe-illustration');
@@ -182,6 +189,7 @@ export function createRecipesPage(root, { api, measure }) {
       amount.textContent = `Needed: ${measure(item.required, item.unit)} · In your fridge: ${measure(item.available, item.unit)}`;
       label.append(amount);
       row.append(label, badge(item.missing ? `Missing ${measure(item.missing, item.unit)}` : 'In stock', !item.missing));
+      planner.addIngredientOptions(row, item, recipe);
       return row;
     }));
     $('#recipe-directions').replaceChildren(...recipe.instructions.split(/\r?\n/).map((step) => step.trim()).filter(Boolean).map((step) => {
@@ -204,7 +212,7 @@ export function createRecipesPage(root, { api, measure }) {
     retry.hidden = true;
     create.disabled = true;
     try {
-      const result = await api(endpoint);
+      const result = await api(`${endpoint}?servings=${planner.servings}`);
       if (token !== version) return;
       data = result;
       create.disabled = false;
@@ -247,7 +255,7 @@ export function createRecipesPage(root, { api, measure }) {
       ...data.ingredients.map((ingredient) => new Option(titleCase(ingredient.name), ingredient._id)));
     if (item) {
       select.value = item.ingredient_id;
-      row.querySelector('input').value = String(item.required / 100);
+      row.querySelector('input').value = String((item.base_required ?? item.required) / 100);
       row.querySelector('[data-recipe-unit]').textContent = item.unit;
     }
     select.addEventListener('change', () => {

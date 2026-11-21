@@ -25,6 +25,8 @@ export const integrations: Record<
   { billing: 'developer' | 'user'; anonymous?: boolean }
 > = {
   anthropic: { billing: 'developer' },
+  apify: {billing:'developer'},
+  openweathermap: {billing:'developer'},
   google: { billing: 'user' },
   composio: { billing: 'user' },
   // openai: { billing: 'developer', anonymous: true },

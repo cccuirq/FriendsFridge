@@ -1,5 +1,8 @@
 # Portal submission draft
 
+Evidence and review: [DeepSpace requirements mapping](docs/deepspace-evidence.md)
+and [prioritized optimization review](docs/optimization-review.md).
+
 **Project:** Friend's Fridge
 
 **Live URL:** https://friends-fridge-jianghui.app.space
@@ -32,6 +35,15 @@ stock transfer and request transition one understandable transaction and
 keeps the migration small. I would normalize/index the state and add chat
 retention/export before opening it to a larger audience.
 
+The meal planner also distinguishes meals already in stock, meals that can be
+completed by requesting friends' shared ingredients, and meals within a grocery
+budget. Native Apify jobs retrieve public non-member Amazon US listings and
+nearby shop listings independently; OpenWeather geocoding supports manual city
+entry when browser location is unavailable. Package rounding, missing prices,
+source timestamps, owner-bound jobs and credit caps are explicit. Nearby store
+prices remain unavailable, so the app clearly labels the online-price fallback
+instead of claiming local checkout prices. See `docs/meal-planning.md`.
+
 The coding agent implemented the platform migration, API compatibility,
 deployment preparation and automated tests, and investigated errors. The
 automated suite checks two independent native accounts, privacy and forged
@@ -49,6 +61,10 @@ deployed app, fill in what you actually verified or changed:
 - [ ] Send a message; borrow an ingredient; complete once and check both stocks.
 - [ ] Create a recipe with a photo; accept a share; save it; remove access.
 - [ ] Upload a photo, review the suggested names, enter quantities, and confirm.
+- [ ] Click only the fridge door to open/close it; check the default closed state.
+- [ ] Try borrowing recommendations and send an explicit ingredient request.
+- [ ] Enter a budget and verify the whole-pack purchase total and price source;
+      test location permission or the manual city alternative.
 - [ ] Explain `transactionSync`, share revocation, server-side identity, credit
       limits and the single-room scaling tradeoff without relying on the agent.
 

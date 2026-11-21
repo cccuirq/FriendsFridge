@@ -12,6 +12,7 @@ export class FridgeRoom extends DurableObject<Env> {
     super(ctx, env)
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS fridge_state (id INTEGER PRIMARY KEY CHECK (id = 1), body TEXT NOT NULL)')
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS fridge_images (key TEXT PRIMARY KEY, content_type TEXT NOT NULL, body BLOB NOT NULL)')
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS shopping_kv (key TEXT PRIMARY KEY, body TEXT NOT NULL, expires INTEGER NOT NULL)')
   }
   private state(): State {
     const row = [...this.ctx.storage.sql.exec<{ body: string }>('SELECT body FROM fridge_state WHERE id = 1')][0]
@@ -32,6 +33,29 @@ export class FridgeRoom extends DurableObject<Env> {
       const subject = request.headers.get('x-fridge-subject')
       if (!subject) return Response.json({ error: { code: 'UNAUTHENTICATED', message: 'Please sign in.' } }, { status: 401 })
       const url = new URL(request.url)
+      if(url.pathname==='/api/_market/rpc'&&request.method==='POST') {
+        if(!this.state().profiles.some(p=>p.auth_id===subject)) throw new DomainError(404,'PROFILE_REQUIRED','Create your profile first.')
+        const input=await request.json() as {op:string;key:string;value?:unknown;ttl?:number;kind?:string}
+        const time=Date.now(),key=String(input.key||'').slice(0,180)
+        const get=(k:string)=>{const row=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM shopping_kv WHERE key=? AND expires>?',k,time).toArray()[0];return row?JSON.parse(row.body):null}
+        const put=(k:string,value:unknown,ttl=3600000)=>{const body=JSON.stringify(value);if(body.length>200000)throw new DomainError(413,'TOO_LARGE','Shopping response too large.');this.ctx.storage.sql.exec('DELETE FROM shopping_kv WHERE expires<=?',time);this.ctx.storage.sql.exec('INSERT INTO shopping_kv (key,body,expires) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET body=excluded.body,expires=excluded.expires',k,body,time+Math.min(ttl,86400000))}
+        const value=this.ctx.storage.transactionSync(()=>{
+          if(input.op==='get') return get(`cache:${key}`)
+          if(input.op==='put'){put(`cache:${key}`,input.value,input.ttl??(key.startsWith('offers:')?900000:3600000));return true}
+          if(input.op==='limit') {
+            const kind=input.kind==='quote'?'quote':'location',day=new Date().toISOString().slice(0,10)
+            const own=`limit:${day}:${kind}:${subject}`,global=`limit:${day}:${kind}:all`,a=Number(get(own)||0),b=Number(get(global)||0)
+            if(a>=(kind==='quote'?3:12)||b>=(kind==='quote'?8:40)) throw new DomainError(429,'SHOPPING_LIMIT','Daily shopping lookup limit reached. Try again tomorrow; inventory and borrowing still work.')
+            put(own,a+1,86400000);put(global,b+1,86400000);return true
+          }
+          const own=`job:${subject}:${key}`
+          if(input.op==='jobCreate'){if(get(own))return false;put(own,{status:'starting',next_poll:time+5000},3600000);return true}
+          if(input.op==='jobUpdate'){if(!get(own))throw new DomainError(404,'QUOTE_EXPIRED','Quote expired.');put(own,input.value,3600000);return true}
+          if(input.op==='jobGet'){const job=get(own);if(!job)throw new DomainError(404,'QUOTE_EXPIRED','Quote not found or expired.');const allow_poll=Number(job.next_poll||0)<=time;if(allow_poll){job.next_poll=time+3000;put(own,job,3600000)}return {...job,allow_poll}}
+          throw new DomainError(400,'INVALID_INPUT','Unknown shopping operation.')
+        })
+        return Response.json({data:value},{headers:{'Cache-Control':'no-store'}})
+      }
       if (url.pathname === '/api/friends/conversations/events') {
         const profile = this.state().profiles.find(p => p.auth_id === subject)
         if (!profile) throw new DomainError(404, 'PROFILE_REQUIRED', 'Choose your username first.')
