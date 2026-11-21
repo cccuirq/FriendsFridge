@@ -353,13 +353,104 @@ dialog .actions { justify-content: flex-end; }
 .stock-empty { text-align: center; padding: 35px 8px; color: var(--muted); }
 .stock-empty > span { display: block; font-size: 52px; margin-bottom: 12px; }
 .stock-empty h3 { color: var(--ink); }
-.fridge-door { position: absolute; z-index: 2; inset: 98px 12px 12px; display: flex; align-items: flex-start; padding: 38px; border: 2px solid var(--ink); border-radius: 14px 16px 18px 14px; background: linear-gradient(112deg, #edfff0 0%, #d2efdb 26%, #c7e5d1 70%, #acd0b9 100%); box-shadow: inset 4px 4px 2px #ffffffb8, inset -7px -6px 3px #6e9c8547, 10px 10px 2px #41624d40, 18px 16px 22px -10px #28221d45; transform: translateZ(14px) rotateY(-4deg); transform-style: preserve-3d; transform-origin: left center; backface-visibility: hidden; pointer-events: none; }
-.fridge-door::before { content: ''; position: absolute; top: 5px; bottom: 5px; left: 100%; width: 20px; border: 2px solid var(--ink); border-radius: 0 7px 9px 0; background: linear-gradient(90deg, #82ac92, #b4d6bf); transform: rotateY(90deg); transform-origin: left center; backface-visibility: hidden; }
-.fridge-door::after { content: ''; position: absolute; inset: 10px; border: 1px solid #ffffff70; border-radius: 9px 10px 12px 9px; box-shadow: inset 0 1px 2px #ffffff70; pointer-events: none; }
-.fridge-note { display: block; padding: 20px; background: var(--yellow); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); transform: rotate(-7deg); font-size: 22px; font-weight: 800; }
-.fridge-handle { position: absolute; right: 24px; top: 35%; width: 19px; height: 94px; border: 2px solid var(--ink); border-radius: 12px; background: linear-gradient(90deg, #b8b5a6, #fffdf7 35%, #fffdf7 58%, #d2cfbd); box-shadow: inset 2px 0 1px #ffffff, 5px 2px 0 #698b75, 8px 6px 7px #28221d38; transform: translateZ(10px); }
-.fridge-open .fridge-door { animation: open-fridge 1.15s .15s ease-in-out both; }
-@keyframes open-fridge { 0%, 12% { transform: translateZ(14px) rotateY(-4deg); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateZ(14px) rotateY(-110deg); opacity: 0; visibility: hidden; } }
+/* A 32px solid door: independent enamel front, edges and insulated inner face. */
+.fridge-door {
+  --door-depth: 32px;
+  position: absolute; z-index: 2; inset: 98px 12px 12px;
+  transform: translateZ(18px) rotateY(-2deg); transform-style: preserve-3d;
+  transform-origin: left center; pointer-events: none;
+}
+.fridge-door-face {
+  position: absolute; inset: 0; display: flex; align-items: flex-start; padding: 38px;
+  transform: translateZ(.5px); backface-visibility: hidden;
+  border: 1.5px solid #536c5b; border-radius: 19px 22px 24px 19px;
+  background:
+    radial-gradient(ellipse at 14% 5%, #ffffff96, transparent 52%),
+    linear-gradient(100deg, #d9eee0 0%, #d0e7d8 36%, #c4dfce 77%, #b1cebc 96%, #a4c2b0);
+  box-shadow: inset 2px 2px 2px #ffffffe0, inset -2px -3px 3px #476e5540,
+    inset 0 0 0 7px #ffffff18, 2px 3px 0 #668372, 5px 6px 0 #405948,
+    8px 9px 12px #263e3030, 18px 20px 28px -14px #263e3050;
+}
+.fridge-door::before {
+  content: ''; position: absolute; top: 3px; bottom: 3px; left: 100%; width: var(--door-depth); box-sizing: border-box;
+  border: 1px solid #506959; border-radius: 0 8px 10px 0;
+  background: linear-gradient(90deg, #5c7966 0 3px, #8aaa95 4px, #c4ddcb 10px, #99b5a2 22px);
+  box-shadow: inset 0 2px 1px #ffffff80, inset 0 -2px 2px #2c493655;
+  transform: rotateY(90deg); transform-origin: left center;
+}
+.fridge-door-face::after {
+  content: ''; position: absolute; inset: 9px;
+  border: 1px solid #ffffff68; border-radius: 13px 15px 17px 13px;
+  background: linear-gradient(115deg, #ffffff20, transparent 34% 78%, #50775e0a);
+  box-shadow: 0 1px 1px #597b6420, inset 0 1px 2px #ffffff40;
+  pointer-events: none;
+}
+
+.fridge-door-top, .fridge-door-bottom {
+  position: absolute; left: 1px; right: 1px; height: var(--door-depth);
+  border: 1px solid #6c8975; border-radius: 7px;
+  background: linear-gradient(#dbe9dc, #a5beaa 45%, #edf0e4);
+  transform: rotateX(-90deg); transform-origin: center top;
+}
+.fridge-door-top { top: 0; }
+.fridge-door-bottom { top: 100%; background: linear-gradient(#8ba58f, #c5d8c7); }
+.fridge-door-hinge {
+  position: absolute; top: 3px; bottom: 3px; right: 100%; width: var(--door-depth);
+  background: linear-gradient(90deg, #e0e7d9, #8ba48f);
+  transform: rotateY(-90deg); transform-origin: right center;
+}
+.fridge-door-liner {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-around;
+  padding: 28px 22px; border: 2px solid #738773; border-radius: 19px;
+  background: linear-gradient(110deg, #e0e7d7, #fffef0 30%, #eef1e2 80%, #c6d2c0);
+  box-shadow: inset 0 0 0 5px #b3c1ae, inset 0 0 0 8px #647b65,
+    inset 0 0 0 11px #d6dfcd, inset 0 0 22px #7f967b55;
+  transform: translateZ(calc(-1 * var(--door-depth))) rotateY(180deg);
+  backface-visibility: hidden;
+}
+.fridge-door-liner > span {
+  display: block; height: 22%; min-height: 35px; margin: 0 9px;
+  border: 1px solid #abbda5; border-bottom: 10px solid #c2d1b9; border-radius: 8px 8px 12px 12px;
+  background: linear-gradient(#9fb89c42, #fffff3 20%, #e2ebd8 75%, #cbd9c1);
+  box-shadow: inset 0 3px 5px #6f896744, 0 6px 5px #5b775b33;
+}
+
+.fridge-note {
+  position: relative; display: block; padding: 20px;
+  background: linear-gradient(135deg, #ffe99a, #ffdc72 80%);
+  border: 1.5px solid #6c592b; box-shadow: 1px 2px 1px #7b68334a, 3px 7px 9px #39523c22;
+  transform: translateZ(8px) rotate(-7deg); font-size: 22px; font-weight: 800;
+}
+.fridge-note::before {
+  content: ''; position: absolute; top: -8px; right: 22px; width: 16px; height: 16px;
+  border: 1px solid #956447; border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #ffe6d2, #e6a582 65%, #c38560);
+  box-shadow: 1px 2px 2px #654d3845;
+}
+.fridge-handle {
+  position: absolute; right: 26px; top: 35%; width: 20px; height: 104px;
+  border: 1px solid #777e73; border-radius: 11px;
+  background: linear-gradient(90deg, #9fa69b, #e8eadf 22%, #fffef4 43%, #eff0e5 63%, #aeb6a7);
+  box-shadow: inset 1px 0 1px #ffffff, inset -1px 0 1px #788b7760,
+    3px 2px 1px #78917b, 5px 4px 3px #46634c40, 9px 7px 9px #29453428;
+  transform: translateZ(12px);
+}
+.fridge-handle::before, .fridge-handle::after {
+  content: ''; position: absolute; z-index: -1; left: 3px; width: 12px; height: 13px;
+  border: 1px solid #819080; border-radius: 5px;
+  background: linear-gradient(90deg, #a2b29f, #edf0e3 48%, #b4c2ae);
+  box-shadow: 2px 2px 2px #3c5a4240;
+}
+.fridge-handle::before { top: -7px; }
+.fridge-handle::after { bottom: -7px; }
+.fridge-open .fridge-door { animation: open-fridge 3.2s .65s cubic-bezier(.32,.08,.24,1) both; }
+@keyframes open-fridge {
+  0%, 8% { transform: translateZ(18px) rotateY(-2deg); }
+  24% { transform: translateZ(18px) rotateY(-12deg); }
+  72% { transform: translateZ(18px) rotateY(-70deg); }
+  92% { transform: translateZ(18px) rotateY(-96deg); }
+  100% { transform: translateZ(18px) rotateY(-108deg); visibility: hidden; }
+}
 .inventory-footnote { margin-top: 12px; }
 [data-stock-error] { color: #9c2e26; }
 [data-stock-error]:empty, [data-stock-status]:empty { display: none; }
@@ -370,7 +461,8 @@ select:focus-visible { outline: 3px solid #7451b4; outline-offset: 3px; }
   .fridge-inside { padding: 15px 12px; }
   .stock-controls { grid-column: 1 / -1; }
   .stock-controls button { flex: 1 0 auto; }
-  .fridge-door { padding: 24px; }
+  .fridge-door { --door-depth: 26px; }
+  .fridge-door-face { padding: 24px; }
   .fridge-note { font-size: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { .fridge-open .fridge-door { animation: none; visibility: hidden; } }
