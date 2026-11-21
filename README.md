@@ -2,6 +2,15 @@
 
 A CS 409 final project about keeping track of groceries and sharing ingredients and recipes with friends.
 
+## DeepSpace adaptation
+
+The evaluation build lives in [`deepspace-app/`](deepspace-app/README.md), based on
+VOE-Du's `9f1e164` revision. It preserves the original business flows while using
+DeepSpace native sign-in, SQLite storage and a low-cost vision integration.
+See its [submission note](deepspace-app/SUBMISSION.md) for the architecture,
+tradeoffs, team provenance and personal verification checklist. The setup below
+continues to describe the original Node.js/MongoDB application.
+
 ## Project idea
 
 Friend’s Fridge helps users keep track of groceries, decide what to cook, and ask friends for ingredients they’re missing. If you need an egg for pancakes, you can check a friend’s shared fridge and send a request from the app.

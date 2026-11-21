@@ -1,0 +1,999 @@
+import { createRecipesPage } from './js/pages/recipes/recipes.js';
+import { createRecognitionPage } from './js/pages/recognition/recognition.js';
+import { createInventoryPage } from './js/pages/inventory/inventory.js';
+import { invitationPages } from './js/pages/friends/invitations.js';
+import { foodImage } from './js/food-images.js';
+
+const $ = (selector) => document.querySelector(selector);
+
+// Native validation messages otherwise follow the browser's display language.
+document.addEventListener('invalid', (event) => {
+  const field = event.target;
+  if (!field.matches('input, select, textarea')) return;
+  field.setCustomValidity('');
+  const validity = field.validity;
+  let message = '';
+  if (validity.badInput) message = 'Please enter a valid number.';
+  else if (validity.valueMissing) message = field.matches('select') ? 'Please select an option.' : 'Please fill out this field.';
+  else if (validity.typeMismatch) message = field.type === 'email' ? 'Please enter a valid email address.' : 'Please enter a valid URL.';
+  else if (validity.patternMismatch) message = field.title ? `Please use the requested format: ${field.title}.` : 'Please use the requested format.';
+  else if (validity.tooShort) message = `Please enter at least ${field.minLength} characters.`;
+  else if (validity.tooLong) message = `Please enter no more than ${field.maxLength} characters.`;
+  else if (validity.rangeUnderflow) message = `Please enter a value greater than or equal to ${field.min}.`;
+  else if (validity.rangeOverflow) message = `Please enter a value less than or equal to ${field.max}.`;
+  else if (validity.stepMismatch) message = `Please enter a valid value in increments of ${field.step || '1'}.`;
+  field.setCustomValidity(message);
+}, true);
+
+for (const type of ['input', 'change']) {
+  document.addEventListener(type, (event) => {
+    if (event.target.matches('input, select, textarea')) event.target.setCustomValidity('');
+  });
+}
+
+const recipesPage = createRecipesPage($('#recipes-page'), { api, measure });
+const recognitionPage = createRecognitionPage($('#recognition-page'), { api });
+const inventoryPage = createInventoryPage($('#my-fridge-page'), { api, measure });
+const requestPath = '/api/friends/ingredient-requests';
+const listPaths = {
+  incoming: '/api/friends/requests?direction=incoming',
+  outgoing: '/api/friends/requests?direction=outgoing',
+};
+const emptyMessages = {
+  incoming: 'No invites to respond to.',
+  outgoing: 'No pending invites.',
+};
+
+let currentUser;
+let generation = 0;
+let routeVersion = 0;
+let searchQuery = '';
+let searchVersion = 0;
+let searchTimer;
+let offsets = {};
+let invitationRefresh;
+const invitationRevisions = {};
+const invitationSignatures = {};
+const invitationManualLoads = {};
+let fridge;
+let selectedIngredient;
+let conversation;
+let directorySignature;
+let directoryCount = 20;
+let directoryRevision = 0;
+let directoryTimer;
+let activityStream;
+let unreadPeers = new Set();
+let unreadRevision = 0;
+const messageTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+// Cookies are shared by tabs, so discard old account screens after a switch.
+const accountChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('ff-account') : null;
+accountChannel?.addEventListener('message', () => location.reload());
+window.addEventListener('storage', (event) => {
+  if (!accountChannel && event.key === 'ff-account-change') location.reload();
+});
+function announceAccountChange() {
+  accountChannel?.postMessage('changed');
+  try { localStorage.setItem('ff-account-change', crypto.randomUUID()); } catch { /* Storage may be disabled. */ }
+}
+
+async function checkAccount() {
+  const version = generation;
+  try {
+    const response = await fetch('/api/users/me', { credentials: 'same-origin', cache: 'no-store' });
+    const result = await response.json();
+    if (version !== generation) return;
+    if ((response.ok && result.data._id !== currentUser?._id) || (response.status === 401 && currentUser)) location.reload();
+  } catch { /* Retry on the next focus; failed requests must not change accounts. */ }
+}
+window.addEventListener('focus', checkAccount);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') checkAccount();
+});
+
+function notice(message = '', error = false) {
+  $('#notice').textContent = message;
+  $('#notice').classList.toggle('error', error);
+}
+
+async function api(path, method = 'GET', body) {
+  const version = generation;
+  const token = await window.fridgeAuth.getToken();
+  const response = await fetch(path, {
+    method,
+    credentials: 'same-origin',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(currentUser ? { 'X-FF-User': currentUser._id } : {}),
+      ...(body ? { 'Content-Type': body instanceof Blob ? body.type : 'application/json' } : {}),
+    },
+    body: body instanceof Blob ? body : body ? JSON.stringify(body) : undefined,
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    if (result.error?.code === 'ACCOUNT_CHANGED') location.reload();
+    if (response.status === 401 && version === generation) location.assign('/home');
+    const error = new Error(result.error?.message || 'Request failed. Please try again.');
+    error.status = response.status;
+    throw error;
+  }
+  return result.data;
+}
+
+function initials(user) {
+  return (user?.display_name || '?').trim().split(/\s+/u).slice(0, 2)
+    .map((word) => Array.from(word)[0]).join('').toLocaleUpperCase();
+}
+
+function displayProfile(user) {
+  $('#account-avatar').textContent = initials(user);
+  $('#profile-avatar').textContent = initials(user);
+  $('#username').textContent = '@' + user.username;
+  $('#profile-form').elements.display_name.value = user.display_name;
+  $('#profile-form').elements.email.value = user.email;
+}
+
+function showAccount(user) {
+  generation++;
+  recipesPage.reset();
+  recognitionPage.reset();
+  inventoryPage.reset(true);
+  currentUser = user;
+  offsets = {};
+  invitationRefresh = null;
+  for (const type of Object.keys(listPaths)) {
+    invitationRevisions[type] = (invitationRevisions[type] || 0) + 1;
+    delete invitationSignatures[type];
+  }
+  clearTimeout(searchTimer);
+  searchVersion++;
+  searchQuery = '';
+  fridge = null;
+  selectedIngredient = null;
+  conversation = null;
+  directorySignature = null;
+  directoryCount = 20;
+  clearTimeout(directoryTimer);
+  $('#friend-filter-form').reset();
+  activityStream?.close();
+  activityStream = null;
+  unreadPeers = new Set();
+  renderUnread();
+  $('#conversation-messages').replaceChildren();
+  $('#conversation-form').reset();
+  $('#request-dialog').close();
+  $('#conversation-share-dialog').close();
+  $('#account-menu').open = false;
+  $('#account-menu').hidden = !user;
+  $('.main-nav').hidden = !user;
+  $('#auth-panel').hidden = Boolean(user);
+  $('#dashboard').hidden = !user;
+  for (const name of Object.keys(listPaths)) {
+    $('#' + name + '-list').replaceChildren();
+    $('#' + name + '-more').hidden = true;
+  }
+  $('#friends-list').replaceChildren();
+  $('#friends-more').hidden = true;
+  $('#search-more').hidden = true;
+  $('#search-results').replaceChildren();
+  $('#search-form').reset();
+  $('#search-directory').hidden = true;
+  $('#invite-dot').hidden = true;
+  $('#invitations-link').removeAttribute('aria-label');
+  $('#profile-form').reset();
+  if (user) {
+    displayProfile(user);
+    renderRoute();
+    activityStream = new EventSource('/api/friends/conversations/events');
+    activityStream.onopen = refreshLive;
+    activityStream.onmessage = refreshLive;
+    activityStream.addEventListener('friendships', refreshLive);
+  }
+}
+
+async function run(control, task) {
+  control.disabled = true;
+  notice();
+  try {
+    await task();
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    control.disabled = false;
+  }
+}
+
+function action(label, task, className = 'secondary') {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.className = className;
+  button.addEventListener('click', () => run(button, task));
+  return button;
+}
+
+function pill(label, className = '') {
+  const element = document.createElement('span');
+  element.className = 'pill ' + className;
+  element.textContent = label;
+  return element;
+}
+
+function entry(user, actions = [], { href, preview, peerId = user?._id } = {}) {
+  const row = document.createElement('li');
+  const person = document.createElement(href ? 'a' : 'div');
+  if (href) person.href = href;
+  person.className = 'person';
+  const avatar = document.createElement('span');
+  avatar.className = 'avatar';
+  avatar.setAttribute('aria-hidden', 'true');
+  avatar.textContent = initials(user);
+  const text = document.createElement('div');
+  const name = document.createElement('strong');
+  name.textContent = user?.display_name || 'Unavailable account';
+  if (href && peerId) {
+    const dot = document.createElement('span');
+    dot.className = 'notification-dot unread-dot';
+    dot.dataset.unreadPeer = peerId;
+    dot.setAttribute('role', 'img');
+    dot.setAttribute('aria-label', 'Unread messages');
+    dot.hidden = !unreadPeers.has(peerId);
+    name.append(dot);
+  }
+  const username = document.createElement('small');
+  username.textContent = preview ?? (user ? '@' + user.username : '');
+  text.append(name, username);
+  person.append(avatar, text);
+  row.append(person);
+  if (actions.length) {
+    const controls = document.createElement('div');
+    controls.className = 'actions';
+    controls.append(...actions);
+    row.append(controls);
+  }
+  return row;
+}
+
+function emptyList(target, message) {
+  if (target.childElementCount) return;
+  const item = document.createElement('li');
+  item.className = 'empty';
+  item.textContent = message;
+  target.append(item);
+}
+
+function quantityText(quantity) {
+  const fraction = quantity % 100;
+  const whole = (quantity - fraction) / 100;
+  return fraction ? whole + '.' + String(fraction).padStart(2, '0').replace(/0$/, '') : String(whole);
+}
+
+function measure(quantity, unit) {
+  if (unit === 'piece' && quantity !== 100) unit = 'pieces';
+  return [quantityText(quantity), unit].filter(Boolean).join(' ');
+}
+
+function requestCard(row, state) {
+  const incoming = row.recipient_id === currentUser._id;
+  const card = document.createElement('div');
+  card.className = 'request-card';
+  const body = document.createElement('div');
+  body.className = 'activity-body';
+  const title = document.createElement('strong');
+  title.textContent = 'Requested ' + (row.ingredient?.name || 'ingredient') + ' · ' + measure(row.quantity, row.ingredient?.default_unit);
+  body.append(title);
+  if (row.text) {
+    const message = document.createElement('p');
+    message.className = 'message-text';
+    message.textContent = row.text;
+    body.append(message);
+  }
+  const controls = document.createElement('div');
+  controls.className = 'actions';
+  controls.append(pill(row.status[0].toUpperCase() + row.status.slice(1), row.status));
+  const options = [];
+  if (incoming && row.status === 'pending') options.push(['Accept', 'accepted'], ['Decline', 'declined']);
+  if (incoming && row.status === 'accepted') options.push(['Mark handed off', 'completed']);
+  if (row.status === 'pending' || row.status === 'accepted') {
+    if (!incoming || row.status === 'accepted') options.push(['Cancel request', 'cancelled']);
+  }
+  for (const [label, status] of options) {
+    controls.append(action(label, async () => {
+      if (state.updating) return;
+      state.updating = true;
+      try {
+        await state.loading;
+        if (conversation !== state) return;
+        const result = await api(requestPath + '/' + row._id, 'PATCH', { status });
+        if (conversation !== state) return;
+        state.items.set(row._id, { ...row, status: result.status });
+        renderMessages(state);
+      } finally {
+        state.updating = false;
+        if (state.livePending) refreshOpenConversation(state);
+      }
+    }));
+  }
+  card.append(body, controls);
+  return card;
+}
+
+function recipeShareCard(row, state) {
+  const incoming = row.recipient_id === currentUser._id;
+  const card = document.createElement('div');
+  card.className = 'request-card recipe-share-card';
+  const title = document.createElement('strong');
+  title.textContent = 'Recipe invitation · ' + (row.recipe_title || 'Unavailable recipe');
+  const description = document.createElement('p');
+  description.className = 'muted';
+  const descriptions = {
+    pending: incoming ? 'Accept this invitation to add the recipe to Shared with me.' : 'Waiting for your friend to accept. You can cancel before they accept.',
+    accepted: incoming ? 'Added to Shared with me. You can remove it at any time.' : 'Your friend accepted this recipe.',
+    declined: 'This sharing invitation was declined.',
+    cancelled: 'The sender cancelled this sharing invitation.',
+    removed: 'The recipient removed this recipe from Shared with me.',
+  };
+  description.textContent = descriptions[row.status] || '';
+  const controls = document.createElement('div');
+  controls.className = 'actions';
+  controls.append(pill(row.status[0].toUpperCase() + row.status.slice(1), row.status));
+  async function transition(status) {
+    if (state.updating) return;
+    state.updating = true;
+    try {
+      await state.loading;
+      if (conversation !== state) return;
+      const result = await api('/api/recipes/shares/' + row._id, 'PATCH', { status });
+      if (conversation !== state) return;
+      state.items.set(row._id, { ...row, status: result.status });
+      renderMessages(state);
+    } finally {
+      state.updating = false;
+      if (conversation === state) refreshOpenConversation(state);
+    }
+  }
+  if (row.status === 'pending') {
+    if (incoming) {
+      if (state.canMessage && row.recipe_available) controls.append(action('Accept', () => transition('accepted')));
+      controls.append(action('Decline', () => transition('declined')));
+    } else controls.append(action('Cancel share', () => transition('cancelled')));
+  }
+  if (row.recipe_available && (!incoming || (row.status === 'accepted' && state.canMessage))) {
+    const view = document.createElement('a');
+    view.className = 'button secondary';
+    view.href = '#recipes/' + row.recipe_id;
+    view.textContent = 'View recipe';
+    controls.append(view);
+  }
+  card.append(title, description, controls);
+  if (row.status === 'accepted' && incoming) {
+    const confirmation = document.createElement('div');
+    confirmation.hidden = true;
+    const prompt = document.createElement('p');
+    prompt.textContent = 'Remove this recipe from Shared with me and your saved recipes?';
+    const buttons = document.createElement('div');
+    buttons.className = 'actions';
+    buttons.append(action('Remove shared recipe', () => transition('removed')), action('Cancel', () => { confirmation.hidden = true; }));
+    confirmation.append(prompt, buttons);
+    controls.append(action('Remove shared recipe', () => { confirmation.hidden = false; }));
+    card.append(confirmation);
+  }
+  return card;
+}
+
+function messageEntry(row, state) {
+  const mine = row.sender_id === currentUser._id;
+  const item = document.createElement('li');
+  item.className = 'message-row';
+  const avatar = document.createElement('span');
+  avatar.className = 'avatar message-avatar' + (mine ? ' mine' : '');
+  avatar.setAttribute('aria-hidden', 'true');
+  avatar.textContent = initials(mine ? currentUser : state.peer);
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  const meta = document.createElement('div');
+  meta.className = 'message-meta';
+  const author = document.createElement('strong');
+  author.textContent = mine ? 'You' : state.peer.display_name;
+  const time = document.createElement('time');
+  time.dateTime = row.created_at;
+  time.textContent = messageTime.format(new Date(row.created_at));
+  meta.append(author, time);
+  content.append(meta);
+  if (row.kind === 'request') content.append(requestCard(row, state));
+  else if (row.kind === 'recipe_share') content.append(recipeShareCard(row, state));
+  else {
+    const text = document.createElement('p');
+    text.className = 'message-text';
+    text.textContent = row.text;
+    content.append(text);
+  }
+  item.append(avatar, content);
+  return item;
+}
+
+function conversationUrl(peerId) {
+  return '/api/friends/' + peerId + '/conversation';
+}
+
+function renderUnread() {
+  for (const dot of document.querySelectorAll('[data-unread-summary]')) {
+    dot.hidden = !unreadPeers.size;
+  }
+  for (const dot of document.querySelectorAll('[data-unread-peer]')) {
+    dot.hidden = !unreadPeers.has(dot.dataset.unreadPeer);
+  }
+}
+
+async function loadUnread() {
+  const account = generation;
+  const revision = ++unreadRevision;
+  const peers = await api('/api/friends/conversations/unread');
+  if (account !== generation || revision !== unreadRevision) return;
+  unreadPeers = new Set(peers);
+  renderUnread();
+}
+
+function nearLatestMessage() {
+  const history = $('#conversation-history');
+  return history.scrollHeight - history.scrollTop - history.clientHeight < 48;
+}
+
+async function markConversationRead(state) {
+  if (!state?.loaded || state.markingRead || document.hidden || !nearLatestMessage() || state.received <= state.read) return;
+  const through = state.received;
+  const account = generation;
+  state.markingRead = true;
+  try {
+    await api(conversationUrl(state.peerId) + '/read', 'POST', { through });
+    state.read = Math.max(state.read, through);
+    if (account === generation) await loadUnread();
+  } catch {
+    // Leave the indicator intact and retry on the next foreground refresh.
+  } finally { state.markingRead = false; }
+}
+
+function renderMessages(state, { older = false, bottom = false } = {}) {
+  const list = $('#conversation-messages');
+  const history = $('#conversation-history');
+  const items = Array.from(state.items.values()).sort((a, b) => a.created_at.localeCompare(b.created_at) || a._id.localeCompare(b._id));
+  const signature = JSON.stringify([state.canMessage, items]);
+  if (signature === state.signature) return;
+  state.signature = signature;
+  const wasNearBottom = nearLatestMessage();
+  const oldHeight = history.scrollHeight;
+  list.replaceChildren(...items.map((item) => messageEntry(item, state)));
+  emptyList(list, 'No messages yet. Say hi!');
+  if (older) history.scrollTop += history.scrollHeight - oldHeight;
+  else if (bottom || wasNearBottom) history.scrollTop = history.scrollHeight;
+}
+
+function loadConversation(state, { older = false, silent = false } = {}) {
+  if (state.loading) return state.loading;
+  const cursor = older ? '?before=' + encodeURIComponent(state.before) : '';
+  const status = $('#conversation-status');
+  state.loading = (async () => {
+    try {
+      const result = await api(conversationUrl(state.peerId) + cursor);
+      if (conversation !== state) return;
+      const rows = [...result.items];
+      const oldestLoaded = [...state.items.values()].sort((a, b) => a.created_at.localeCompare(b.created_at) || a._id.localeCompare(b._id))[0];
+      const beforeLoaded = (row) => row && oldestLoaded && (row.created_at < oldestLoaded.created_at || (row.created_at === oldestLoaded.created_at && row._id <= oldestLoaded._id));
+      // Catch up across pages if more than one page arrived between refreshes.
+      let page = result;
+      while (!older && state.items.size && page.next_before && !beforeLoaded(page.items.at(-1))) {
+        page = await api(conversationUrl(state.peerId) + '?before=' + encodeURIComponent(page.next_before));
+        if (conversation !== state) return;
+        rows.push(...page.items);
+      }
+      state.peer = result.peer;
+      state.canMessage = result.can_message;
+      $('#conversation-title').textContent = result.peer.display_name;
+      $('#conversation-form').hidden = !result.can_message;
+      $('#conversation-share-recipe').hidden = !result.can_message;
+      const fridgeLink = $('#conversation-fridge');
+      fridgeLink.href = '#friends/' + state.peerId;
+      fridgeLink.hidden = !result.can_message;
+      if (older || !state.items.size) state.before = result.next_before;
+      $('#conversation-more').hidden = !state.before;
+      status.textContent = result.can_message ? '' : 'This conversation is read-only.';
+      for (const row of rows) state.items.set(row._id, row);
+      renderMessages(state, { older, bottom: !state.loaded });
+      if (!older) state.received = result.received;
+      state.read = Math.max(state.read, result.read);
+      state.loaded = true;
+      markConversationRead(state);
+    } catch (error) {
+      if (conversation === state && !silent) status.textContent = error.message;
+    } finally {
+      state.loading = null;
+      if (state.livePending) refreshOpenConversation(state);
+    }
+  })();
+  return state.loading;
+}
+
+function directoryEntry(row) {
+  const actions = [];
+  if (row.active && row.peer) {
+    const open = document.createElement('a');
+    open.className = 'friend-fridge-link';
+    open.href = '#friends/' + row._id;
+    open.title = 'View fridge';
+    open.setAttribute('aria-label', 'View fridge for ' + row.peer.display_name);
+    open.append($('#friend-fridge-icon').content.cloneNode(true));
+    actions.push(open);
+  }
+  let preview;
+  if (row.latest) {
+    const prefix = row.latest.sender_id === currentUser._id ? 'You: ' : '';
+    preview = prefix + (row.latest.kind === 'request' ? 'Ingredient request' : row.latest.kind === 'recipe_share' ? 'Recipe invitation · ' + (row.latest.recipe_title || 'Recipe') : row.latest.text);
+  }
+  return entry(row.peer, actions, { href: '#conversation/' + row._id, preview, peerId: row._id });
+}
+
+async function loadDirectory() {
+  if (!currentUser) return;
+  const version = generation;
+  const revision = ++directoryRevision;
+  const count = directoryCount;
+  const query = $('#friend-filter').value.trim();
+  const params = new URLSearchParams({ count, q: query });
+  const rows = await api('/api/friends/directory?' + params);
+  if (version !== generation || revision !== directoryRevision) return;
+  $('#friends-more').hidden = rows.length <= count;
+  const signature = JSON.stringify([query, count, rows]);
+  if (signature === directorySignature) return;
+  directorySignature = signature;
+  const target = $('#friends-list');
+  target.replaceChildren(...rows.slice(0, count).map(directoryEntry));
+  emptyList(target, query ? 'No matching friends.' : 'No friends yet. Open Invites to add someone.');
+}
+
+function invitationEntry(row, type) {
+  const actions = [];
+  if (type === 'incoming') {
+    for (const [label, status] of [['Accept', 'accepted'], ['Decline', 'declined']]) {
+      actions.push(action(label, async () => {
+        await api('/api/friends/requests/' + row._id, 'PATCH', { status });
+        await refresh();
+        notice(status === 'accepted' ? 'You are now friends.' : 'Invitation declined.');
+      }));
+    }
+  }
+  if (type === 'outgoing') actions.push(pill('Pending', 'pending'));
+  return entry(row.user, actions);
+}
+
+async function loadList(type, append = false, preservePages = false) {
+  if (!currentUser) return;
+  const manual = preservePages ? null : {};
+  if (manual) invitationManualLoads[type] = manual;
+  try {
+    const version = generation;
+    const revision = invitationRevisions[type] = (invitationRevisions[type] || 0) + 1;
+    const offset = append ? offsets[type] + 20 : 0;
+    const count = preservePages ? (offsets[type] || 0) + 20 : 20;
+    const path = listPaths[type];
+    const result = await invitationPages(api, path, offset, count, () => version === generation && revision === invitationRevisions[type]);
+    if (!result) return;
+    const { rows, lastOffset, hasMore } = result;
+    offsets[type] = lastOffset;
+    const signature = JSON.stringify(rows);
+    const unchanged = !append && invitationSignatures[type] === signature;
+    invitationSignatures[type] = append ? null : signature;
+    const target = $('#' + type + '-list');
+    if (!unchanged) {
+      if (!append) target.replaceChildren();
+      for (const row of rows) target.append(invitationEntry(row, type));
+    }
+    emptyList(target, emptyMessages[type]);
+    $('#' + type + '-more').hidden = !hasMore;
+    if (type === 'incoming' && !append) {
+      $('#invite-dot').hidden = !rows.length;
+      if (rows.length) $('#invitations-link').setAttribute('aria-label', 'Invites, pending invitations');
+      else $('#invitations-link').removeAttribute('aria-label');
+    }
+  } finally {
+    if (manual && invitationManualLoads[type] === manual) delete invitationManualLoads[type];
+  }
+}
+
+function refreshInvitations() {
+  if (!currentUser || invitationRefresh || Object.keys(invitationManualLoads).length) return invitationRefresh;
+  const task = Promise.all(Object.keys(listPaths).map((type) => loadList(type, false, true)));
+  invitationRefresh = task;
+  task.finally(() => { if (invitationRefresh === task) invitationRefresh = null; }).catch(() => {});
+  return task;
+}
+
+function refresh() {
+  return Promise.all([...Object.keys(listPaths).map((type) => loadList(type)), loadUnread(), loadDirectory()]);
+}
+
+function openRequest(item) {
+  selectedIngredient = item;
+  const { ingredient, quantity } = item;
+  const form = $('#request-form');
+  form.reset();
+  form.elements.quantity.max = quantityText(quantity);
+  $('#request-title').textContent = 'Ask for ' + ingredient.name;
+  $('#request-unit').textContent = '(' + ingredient.default_unit + ')';
+  $('#request-stock').textContent = measure(quantity, ingredient.default_unit) + ' available from ' + fridge.friend.display_name + '.';
+  $('#request-error').textContent = '';
+  $('#request-dialog').showModal();
+}
+
+function ingredientEntry(item) {
+  const row = document.createElement('li');
+  const details = document.createElement('div');
+  details.className = 'activity-body';
+  const name = document.createElement('strong');
+  name.className = 'ingredient-name';
+  name.textContent = item.ingredient.name;
+  const quantity = document.createElement('p');
+  quantity.className = 'muted';
+  quantity.textContent = measure(item.quantity, item.ingredient.default_unit) + ' available';
+  details.append(name, quantity);
+  const button = action('Request', () => openRequest(item));
+  button.setAttribute('aria-label', 'Request ' + item.ingredient.name);
+  row.append(foodImage(item.ingredient), details, button);
+  return row;
+}
+
+async function loadFridge(friendId, append = false) {
+  const version = routeVersion;
+  const account = generation;
+  const offset = append ? offsets.fridge + 20 : 0;
+  const target = $('#ingredient-list');
+  const status = $('#fridge-status');
+  status.hidden = false;
+  status.textContent = 'Loading shared ingredients…';
+  try {
+    const result = await api('/api/friends/' + friendId + '/fridge?offset=' + offset);
+    if (version !== routeVersion || account !== generation) return;
+    fridge = result;
+    offsets.fridge = offset;
+    status.hidden = true;
+    $('#fridge-title').textContent = result.friend.display_name + '’s fridge';
+    $('#fridge-avatar').textContent = initials(result.friend);
+    $('#fridge-avatar').hidden = false;
+    $('#remove-friend').hidden = false;
+    $('#fridge-conversation').href = '#conversation/' + friendId;
+    $('#fridge-conversation').hidden = false;
+    if (!append) target.replaceChildren();
+    for (const item of result.items) target.append(ingredientEntry(item));
+    emptyList(target, 'No shared ingredients available right now.');
+    $('#fridge-more').hidden = result.items.length < 20;
+  } catch (error) {
+    if (version === routeVersion && account === generation) status.textContent = error.message;
+  }
+}
+
+function renderRoute(focus = false) {
+  if (!currentUser) return;
+  routeVersion++;
+  $('#account-menu').open = false;
+  $('#request-dialog').close();
+  $('#conversation-share-dialog').close();
+  const hash = location.hash === '#activity' ? 'friends' : location.hash.slice(1);
+  const shared = /^friends\/([0-9a-f-]{36})$/.exec(hash);
+  const chat = /^conversation\/([0-9a-f-]{36})$/.exec(hash);
+  const recipe = /^recipes\/([0-9a-f-]{36})$/.exec(hash);
+  const mainPages = ['my-fridge', 'recipes', 'friends', 'profile', 'invitations', 'recognition'];
+  const page = shared ? 'fridge' : chat ? 'conversation' : recipe ? 'recipes' : mainPages.includes(hash) ? hash : 'my-fridge';
+  const activeTab = ['fridge', 'invitations', 'conversation'].includes(page) ? 'friends' : page;
+  conversation = null;
+  for (const panel of document.querySelectorAll('.page')) panel.hidden = panel.id !== page + '-page';
+  if (page === 'recipes') recipesPage.open(recipe?.[1]);
+  else recipesPage.reset();
+  if (page === 'recognition') recognitionPage.open();
+  if (page === 'my-fridge') inventoryPage.open();
+  else inventoryPage.reset();
+  for (const tab of document.querySelectorAll('.main-nav a')) {
+    if (tab.hash === '#' + activeTab) tab.setAttribute('aria-current', 'page');
+    else tab.removeAttribute('aria-current');
+  }
+  if (shared) {
+    fridge = null;
+    $('#fridge-title').textContent = 'Shared fridge';
+    $('#fridge-avatar').textContent = '';
+    $('#fridge-avatar').hidden = true;
+    $('#ingredient-list').replaceChildren();
+    $('#fridge-more').hidden = true;
+    $('#remove-friend').hidden = true;
+    $('#fridge-conversation').hidden = true;
+    loadFridge(shared[1]);
+  }
+  if (chat) {
+    conversation = { peerId: chat[1], items: new Map(), received: 0, read: 0 };
+    $('#conversation-title').textContent = 'Conversation';
+    $('#conversation-status').textContent = 'Loading messages…';
+    $('#conversation-messages').replaceChildren();
+    $('#conversation-more').hidden = true;
+    $('#conversation-fridge').hidden = true;
+    $('#conversation-share-recipe').hidden = true;
+    $('#conversation-form').hidden = true;
+    $('#conversation-form').reset();
+    loadConversation(conversation);
+  }
+  if (focus) {
+    $('#' + page + '-title').focus();
+    if (page === 'friends') loadDirectory().catch((error) => notice(error.message, true));
+    if (page === 'invitations') {
+      Promise.all([loadList('incoming'), loadList('outgoing')]).catch((error) => notice(error.message, true));
+    }
+  }
+}
+
+window.addEventListener('hashchange', () => {
+  notice();
+  renderRoute(true);
+});
+const accountMenu = $('#account-menu');
+accountMenu.querySelector('a').addEventListener('click', () => { accountMenu.open = false; });
+document.addEventListener('click', (event) => {
+  if (!accountMenu.contains(event.target)) accountMenu.open = false;
+});
+accountMenu.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && accountMenu.open) {
+    accountMenu.open = false;
+    $('#account-avatar').focus();
+  }
+});
+
+for (const type of Object.keys(listPaths)) {
+  $('#' + type + '-more').addEventListener('click', (event) => run(event.currentTarget, () => loadList(type, true)));
+}
+$('#friends-more').addEventListener('click', (event) => run(event.currentTarget, async () => {
+  directoryCount += 20;
+  await loadDirectory();
+}));
+$('#fridge-more').addEventListener('click', (event) => run(event.currentTarget, () => loadFridge(fridge.friend._id, true)));
+$('#conversation-more').addEventListener('click', (event) => {
+  if (conversation?.before) run(event.currentTarget, () => loadConversation(conversation, { older: true }));
+});
+const composer = $('#conversation-form');
+composer.elements.text.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+    event.preventDefault();
+    composer.requestSubmit();
+  }
+});
+composer.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const state = conversation;
+  if (!state || state.sending) return;
+  const input = composer.elements.text;
+  const draft = input.value;
+  const text = draft.trim();
+  if (!text) return;
+  if (state.draft?.text !== text) state.draft = { text, message_id: crypto.randomUUID() };
+  state.sending = true;
+  run(composer.querySelector('button'), async () => {
+    try {
+      const message = await api(conversationUrl(state.peerId), 'POST', state.draft);
+      if (conversation !== state) return;
+      if (input.value === draft) input.value = '';
+      state.draft = null;
+      state.items.set(message._id, { ...message, kind: 'message' });
+      renderMessages(state, { bottom: true });
+      input.focus();
+    } finally {
+      state.sending = false;
+      if (state.livePending) refreshOpenConversation(state);
+    }
+  });
+});
+
+function refreshOpenConversation(state) {
+  if (conversation !== state) return;
+  state.livePending = Boolean(state.loading || state.sending || state.updating);
+  if (!state.livePending) loadConversation(state, { silent: true });
+}
+
+function refreshLive() {
+  if (!currentUser) return;
+  refreshInvitations()?.catch(() => {});
+  loadUnread().catch(() => {});
+  if (conversation) refreshOpenConversation(conversation);
+  if (!$('#friends-page').hidden) loadDirectory().catch(() => {});
+  if (!$('#my-fridge-page').hidden) inventoryPage.refresh();
+}
+
+$('#conversation-share-recipe').addEventListener('click', (event) => run(event.currentTarget, async () => {
+  const state = conversation;
+  if (!state?.canMessage) return;
+  const result = await api('/api/recipes');
+  if (conversation !== state) return;
+  const owned = result.recipes.filter((recipe) => recipe.owned);
+  if (!owned.length) { notice('Create a recipe in Recipes before sharing it with your friend.'); return; }
+  const form = $('#conversation-share-form');
+  form.reset();
+  form.elements.recipe_id.replaceChildren(new Option('Choose your recipe', ''), ...owned.map((recipe) => new Option(recipe.title, recipe._id)));
+  $('#conversation-share-status').textContent = '';
+  $('#conversation-share-dialog').showModal();
+}));
+$('#conversation-share-close').addEventListener('click', () => $('#conversation-share-dialog').close());
+$('#conversation-share-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const state = conversation;
+  if (!state?.canMessage || state.sharing) return;
+  const recipeId = event.currentTarget.elements.recipe_id.value;
+  const control = event.submitter;
+  state.sharing = true;
+  control.disabled = true;
+  try {
+    await api('/api/recipes/' + recipeId + '/shares', 'POST', { recipient_id: state.peerId });
+    if (conversation !== state) return;
+    $('#conversation-share-dialog').close();
+    refreshOpenConversation(state);
+  } catch (error) {
+    if (conversation === state) $('#conversation-share-status').textContent = error.message;
+  } finally { state.sharing = false; control.disabled = false; }
+});
+function pollActivity() {
+  if (!document.hidden) refreshLive();
+}
+setInterval(pollActivity, 5000);
+document.addEventListener('visibilitychange', pollActivity);
+$('#conversation-history').addEventListener('scroll', () => markConversationRead(conversation));
+
+$('#remove-friend').addEventListener('click', (event) => run(event.currentTarget, async () => {
+  const friend = fridge.friend;
+  if (!confirm('Remove ' + friend.display_name + ' from your friends?')) return;
+  await api('/api/friends/' + friend._id, 'DELETE');
+  location.hash = 'friends';
+  await refresh();
+  notice('Friend removed.');
+}));
+$('#close-request').addEventListener('click', () => $('#request-dialog').close());
+$('#request-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const control = form.querySelector('[type="submit"]');
+  const value = form.elements.quantity.value;
+  const [whole, fraction = ''] = value.split('.');
+  const quantity = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  if (!/^\d*(?:\.\d{1,2})?$/.test(value) || !Number.isSafeInteger(quantity) || quantity <= 0) {
+    $('#request-error').textContent = 'Enter a positive quantity with up to two decimal places.';
+    return;
+  }
+  const { ingredient } = selectedIngredient;
+  const version = routeVersion;
+  const account = generation;
+  const peerId = fridge.friend._id;
+  control.disabled = true;
+  $('#request-error').textContent = '';
+  try {
+    await api(requestPath, 'POST', {
+      owner_id: peerId,
+      ingredient_id: ingredient._id,
+      quantity,
+      message: form.elements.message.value,
+    });
+    if (account !== generation) return;
+    if (version === routeVersion) location.hash = 'conversation/' + peerId;
+  } catch (error) {
+    if (version === routeVersion && account === generation) $('#request-error').textContent = error.message;
+  } finally {
+    control.disabled = false;
+  }
+});
+
+for (const mode of ['login', 'register']) {
+  $('#show-' + mode).addEventListener('click', () => {
+    for (const item of ['login', 'register']) {
+      $('#' + item + '-form').hidden = mode !== item;
+      $('#show-' + item).setAttribute('aria-pressed', String(item === mode));
+    }
+    notice();
+  });
+  $('#' + mode + '-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    run(form.querySelector('button'), async () => {
+      const user = await api('/api/auth/' + mode, 'POST', Object.fromEntries(new FormData(form)));
+      announceAccountChange();
+      form.reset();
+      showAccount(user);
+      await refresh();
+    });
+  });
+}
+
+$('#profile-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  run(form.querySelector('button'), async () => {
+    const version = generation;
+    const user = await api('/api/users/me', 'PATCH', Object.fromEntries(new FormData(form)));
+    if (version !== generation) return;
+    currentUser = user;
+    displayProfile(user);
+    notice('Profile saved.');
+  });
+});
+$('#logout').addEventListener('click', (event) => run(event.currentTarget, async () => {
+  await window.fridgeAuth.signOut();
+  announceAccountChange();
+  showAccount(null);
+  location.assign('/home');
+  notice('You have logged out.');
+}));
+
+function queueFriendFilter(delay) {
+  clearTimeout(directoryTimer);
+  directoryRevision++;
+  directoryCount = 20;
+  $('#friends-more').hidden = true;
+  directoryTimer = setTimeout(() => loadDirectory().catch((error) => notice(error.message, true)), delay);
+}
+$('#friend-filter').addEventListener('input', () => queueFriendFilter(250));
+$('#friend-filter-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  queueFriendFilter(0);
+});
+
+async function search(append = false) {
+  const version = generation;
+  const revision = searchVersion;
+  const offset = append ? offsets.search + 20 : 0;
+  const query = searchQuery;
+  let rows;
+  try {
+    rows = await api('/api/users?q=' + encodeURIComponent(query) + '&offset=' + offset + '&invitable=1');
+  } catch (error) {
+    if (version === generation && revision === searchVersion) $('#search-status').textContent = error.message;
+    return;
+  }
+  if (version !== generation || revision !== searchVersion) return;
+  offsets.search = offset;
+  const target = $('#search-results');
+  if (!append) target.replaceChildren();
+  $('#search-status').textContent = '';
+  for (const user of rows) {
+    const add = action('+', async () => {
+      await api('/api/friends/requests', 'POST', { user_id: user._id });
+      add.replaceWith(pill('Invited', 'pending'));
+      let updatedSearch;
+      if (version === generation && query === searchQuery) {
+        clearTimeout(searchTimer);
+        searchVersion++;
+        updatedSearch = search();
+      }
+      await Promise.all([loadList('outgoing'), updatedSearch]);
+      notice('Invitation sent to ' + user.display_name + '.');
+    }, 'add-friend');
+    add.setAttribute('aria-label', 'Add ' + user.display_name);
+    target.append(entry(user, [add]));
+  }
+  emptyList(target, 'No matching people to invite.');
+  $('#search-more').hidden = rows.length < 20;
+}
+function queueSearch(value, immediate = false) {
+  clearTimeout(searchTimer);
+  searchVersion++;
+  searchQuery = value.trim();
+  $('#search-directory').hidden = !searchQuery;
+  $('#search-results').replaceChildren();
+  $('#search-more').hidden = true;
+  $('#search-status').textContent = searchQuery.length < 2 ? 'Type at least two characters.' : 'Searching…';
+  if (searchQuery.length < 2) return;
+  if (immediate) search();
+  else searchTimer = setTimeout(() => search(), 250);
+}
+$('#search-form').elements.q.addEventListener('input', (event) => queueSearch(event.currentTarget.value));
+$('#search-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  queueSearch(event.currentTarget.elements.q.value, true);
+});
+$('#search-more').addEventListener('click', (event) => run(event.currentTarget, () => search(true)));
+
+try {
+  showAccount(await api('/api/users/me'));
+  await refresh();
+} catch (error) {
+  if (error.status !== 401) notice(error.message, true);
+}
