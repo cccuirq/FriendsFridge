@@ -356,9 +356,10 @@ dialog .actions { justify-content: flex-end; }
 /* A 32px solid door: independent enamel front, edges and insulated inner face. */
 .fridge-door {
   --door-depth: 32px;
+  --door-open-angle: -94deg;
   position: absolute; z-index: 2; inset: 98px 12px 12px;
-  transform: translateZ(18px) rotateY(-2deg); transform-style: preserve-3d;
-  transform-origin: left center; pointer-events: none;
+  transform: translateZ(var(--door-depth)) rotateY(-2deg); transform-style: preserve-3d;
+  transform-origin: 0 50% calc(-1 * var(--door-depth)); pointer-events: none;
 }
 .fridge-door-face {
   position: absolute; inset: 0; display: flex; align-items: flex-start; padding: 38px;
@@ -399,6 +400,23 @@ dialog .actions { justify-content: flex-end; }
   background: linear-gradient(90deg, #e0e7d9, #8ba48f);
   transform: rotateY(-90deg); transform-origin: right center;
 }
+
+/* Fixed hinge barrels meet the back edge of the rotating, insulated door. */
+.fridge-hinge-pin {
+  position: absolute; z-index: 3; left: 7px; width: 12px; height: 36px;
+  border: 1px solid #627767; border-radius: 6px;
+  background: repeating-linear-gradient(180deg, transparent 0 10px, #63796a66 10px 11px),
+    linear-gradient(90deg, #7c9181, #eff2df 38%, #b4c4b0 66%, #6e8474);
+  box-shadow: 1px 1px 2px #29433340; pointer-events: none;
+}
+.fridge-hinge-pin-top { top: 120px; }
+.fridge-hinge-pin-bottom { bottom: 34px; }
+.fridge-hinge-pin::before {
+  content: ''; position: absolute; top: 9px; right: 8px; width: 8px; height: 16px;
+  border: 1px solid #748a78; border-radius: 3px 0 0 3px;
+  background: linear-gradient(#d7e2cc, #8da590); z-index: -1;
+}
+
 .fridge-door-liner {
   position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-around;
   padding: 28px 22px; border: 2px solid #738773; border-radius: 19px;
@@ -443,13 +461,12 @@ dialog .actions { justify-content: flex-end; }
 }
 .fridge-handle::before { top: -7px; }
 .fridge-handle::after { bottom: -7px; }
-.fridge-open .fridge-door { animation: open-fridge 3.2s .65s cubic-bezier(.32,.08,.24,1) both; }
+.fridge-open .fridge-door { transform: translateZ(var(--door-depth)) rotateY(var(--door-open-angle)); animation: open-fridge 3.2s .65s cubic-bezier(.32,.08,.24,1) both; }
 @keyframes open-fridge {
-  0%, 8% { transform: translateZ(18px) rotateY(-2deg); }
-  24% { transform: translateZ(18px) rotateY(-12deg); }
-  72% { transform: translateZ(18px) rotateY(-70deg); }
-  92% { transform: translateZ(18px) rotateY(-96deg); }
-  100% { transform: translateZ(18px) rotateY(-108deg); visibility: hidden; }
+  0%, 8% { transform: translateZ(var(--door-depth)) rotateY(-2deg); }
+  24% { transform: translateZ(var(--door-depth)) rotateY(-12deg); }
+  72% { transform: translateZ(var(--door-depth)) rotateY(-70deg); }
+  100% { transform: translateZ(var(--door-depth)) rotateY(var(--door-open-angle)); }
 }
 .inventory-footnote { margin-top: 12px; }
 [data-stock-error] { color: #9c2e26; }
@@ -457,15 +474,15 @@ dialog .actions { justify-content: flex-end; }
 [data-stock-form] select { display: block; width: 100%; margin-top: 6px; padding: 10px; border: 1px solid #8b7c6e; border-radius: 8px; background: white; color: inherit; font: inherit; }
 select:focus-visible { outline: 3px solid #7451b4; outline-offset: 3px; }
 @media (max-width: 540px) {
-  .fridge-scene { padding-inline: 0; }
+  .fridge-scene { padding-inline: 22px 0; }
   .fridge-inside { padding: 15px 12px; }
   .stock-controls { grid-column: 1 / -1; }
   .stock-controls button { flex: 1 0 auto; }
-  .fridge-door { --door-depth: 26px; }
+  .fridge-door { --door-depth: 26px; --door-open-angle: -94deg; }
   .fridge-door-face { padding: 24px; }
   .fridge-note { font-size: 18px; }
 }
-@media (prefers-reduced-motion: reduce) { .fridge-open .fridge-door { animation: none; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .fridge-open .fridge-door { transform: translateZ(var(--door-depth)) rotateY(var(--door-open-angle)); animation: none; } }
 
 /* Locally cached default photos and their no-image fallback. */
 .food-picture { position: relative; display: inline-grid; flex: none; place-items: center; width: 72px; height: 72px; overflow: hidden; border-radius: 14px; background: #fffdf7; vertical-align: middle; }
