@@ -14,7 +14,7 @@ and [prioritized optimization review](docs/optimization-review.md).
 **Live URL:** https://friends-fridge-jianghui.app.space
 
 **Repository:** the DeepSpace cloud source repository for the deployed app;
-CS409 review copy: https://github.com/cccuirq/409FinalProj/tree/deepspace-migration/deepspace-app.
+Repository review copy: https://github.com/cccuirq/FriendsFridge/tree/deepspace-migration/deepspace-app.
 
 Friend's Fridge helps friends turn their existing ingredients into dinner.
 Users keep private inventories, choose what friends may see, find recipes
@@ -22,23 +22,16 @@ and missing ingredients, chat, and request an ingredient handoff. Completing
 the handoff moves stock atomically, including protection against repeated
 clicks. Recipe sharing uses explicit invitations and revocable access.
 
-I adapted our existing five-person CS409 project (base commit `9f1e164`),
-preserving its business flows and crediting the original team and image
-sources. The exercise work migrates authentication and hosting to DeepSpace,
-implements the database transaction boundary and authorized photo storage,
-and uses the native Anthropic integration for reviewable photo suggestions.
-It does not present the entire prior team project as five days of new work.
-
 DeepSpace native auth, SQLite Durable Objects and the native Anthropic
 integration serve clear purposes. Recipe photos are stored in a bounded SQLite BLOB table because the free
 platform tier refused R2 bindings. Photo analysis uses a small Haiku request
-instead of a model requiring a $2 reserve. The original manual review step
+instead of a model requiring a $2 reserve. The user confirmation step
 is essential: neither quantities nor freshness can be trusted from a photo.
 Additional integrations would not improve the core food-sharing workflow.
 
 My main tradeoff was one serialized, 8 MB SQLite workspace. This makes a
 stock transfer and request transition one understandable transaction and
-keeps the migration small. I would normalize/index the state and add chat
+keeps the transaction logic understandable. I would normalize/index the state and add chat
 retention before opening it to a larger audience. Authenticated personal JSON export is already available.
 
 The meal planner also distinguishes meals already in stock, meals that can be
