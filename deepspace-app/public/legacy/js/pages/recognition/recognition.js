@@ -84,7 +84,7 @@ export function createRecognitionPage(root, { api }) {
     batchId = crypto.randomUUID();
     if (resetUpload) {
       $('[data-upload]').value = '';
-      $('[data-upload-name]').textContent = 'No file chosen';
+      $('[data-upload-name]').textContent = 'No photo selected';
     }
     $('[data-saved]').hidden = true;
     status('Choose a photo, or add ingredients manually. Nothing is saved until you confirm.');
