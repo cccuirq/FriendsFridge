@@ -1,0 +1,114 @@
+{
+  "verified_date": "2026-11-22",
+  "timezone": "America/Chicago",
+  "release_id": "rel_01M826EWBX71FKPHY9YP03TH9X",
+  "cloud_source_commit": "eb116a82b8cbdfec6b82e3359a406dd25930c505",
+  "live_url": "https://friends-fridge-jianghui.app.space",
+  "checks": {
+    "cloud_typecheck_and_unit": 29,
+    "migration_copy_typecheck_and_unit": 37,
+    "local_real_price_e2e": "passed",
+    "production_browser_api": {
+      "passed": 8,
+      "failed": 0,
+      "seconds": 32.9
+    }
+  },
+  "example": {
+    "meal": {
+      "recipe_id": "87280ae1-8827-420d-b5b2-308abc181fd8",
+      "title": "A Pancake price QA mws54cn9",
+      "lines": [
+        {
+          "ingredient_id": "f2000000-0000-4000-8000-000000000001",
+          "name": "egg",
+          "unit": "piece",
+          "missing": 200,
+          "offer": {
+            "name": "egg",
+            "title": "Amazon Grocery, Cage-Free Extra Large White Eggs, Grade A, 12 Ct",
+            "url": "https://www.amazon.com/dp/B0FBNVS43Q",
+            "price_cents": 217,
+            "package_quantity": 1200,
+            "unit": "piece",
+            "checked_at": "2026-11-22T17:58:48.886Z",
+            "package_label": "Amazon Grocery, Cage-Free Extra Large White Eggs, Grade A, 12 Ct",
+            "packs": 1,
+            "total_cents": 217,
+            "missing": 200,
+            "leftover": 1000
+          },
+          "reason": null
+        },
+        {
+          "ingredient_id": "f2000000-0000-4000-8000-000000000002",
+          "name": "milk",
+          "unit": "ml",
+          "missing": 20000,
+          "offer": {
+            "name": "milk",
+            "title": "Amazon Grocery, 2% Reduced Fat Milk, 1 Gallon, 128 Fl Oz",
+            "url": "https://www.amazon.com/dp/B0D6THTMHK",
+            "price_cents": 235,
+            "package_quantity": 378541,
+            "unit": "ml",
+            "checked_at": "2026-11-22T17:58:48.886Z",
+            "package_label": "Amazon Grocery, 2% Reduced Fat Milk, 1 Gallon, 128 Fl Oz",
+            "packs": 1,
+            "total_cents": 235,
+            "missing": 20000,
+            "leftover": 358541
+          },
+          "reason": null
+        },
+        {
+          "ingredient_id": "f2000000-0000-4000-8000-000000000003",
+          "name": "flour",
+          "unit": "g",
+          "missing": 15000,
+          "offer": {
+            "name": "flour",
+            "title": "Amazon Grocery, All Purpose Flour, 2 Lb",
+            "url": "https://www.amazon.com/dp/B07Z78Q8TB",
+            "price_cents": 97,
+            "package_quantity": 90718,
+            "unit": "g",
+            "checked_at": "2026-11-22T17:58:48.886Z",
+            "package_label": "Amazon Grocery, All Purpose Flour, 2 Lb",
+            "packs": 1,
+            "total_cents": 97,
+            "missing": 15000,
+            "leftover": 75718
+          },
+          "reason": null
+        }
+      ],
+      "known_total_cents": 549,
+      "total_cents": 549,
+      "within_budget": true,
+      "remaining_cents": 951,
+      "status": "priced"
+    },
+    "summary": {
+      "within_budget": 4,
+      "incomplete": 10,
+      "over_budget": 0
+    },
+    "coverage": {
+      "checked_recipe_ids": [
+        "691f49b2-185d-4a8b-b521-d09704da3dfe",
+        "00fc4d37-042b-4090-a3d8-e619f18d398f",
+        "f1000000-0000-4000-8000-000000000011",
+        "87280ae1-8827-420d-b5b2-308abc181fd8"
+      ],
+      "ingredient_count": 4,
+      "total_candidates": 14,
+      "offset": 0,
+      "next_offset": 4,
+      "recipe_limit": 4,
+      "ingredient_limit": 6
+    },
+    "checked_at": "2026-11-22T17:58:48.886Z"
+  },
+  "note": "Actual retrieved public online prices at the recorded time, not a promise of later availability or delivery eligibility. QA recipe deleted and prior test inventory restored."
+}

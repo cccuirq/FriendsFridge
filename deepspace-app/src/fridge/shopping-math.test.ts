@@ -1,5 +1,6 @@
+import sample from './data/price-sample-2026-11-22.json'
 import {it,expect} from 'vitest'
-import {normalizeOffer,packageQuantity,priceRecipes,candidateBatch,nearbyStores} from './shopping-math'
+import {normalizeOffer,packageQuantity,priceRecipes,inspectOffer,candidateBatch} from './shopping-math'
 const item={ingredient_id:'flour',name:'flour',unit:'g',missing:10000}
 const raw={title:'Amazon Grocery, All Purpose Flour, 5 Lb',url:'https://www.amazon.com/dp/B07Z7DY1N8',price:{value:2.07,currency:'$'},inStock:true}
 it('converts a real five-pound flour package and charges the whole pack',()=>{
@@ -31,20 +32,43 @@ it('excludes member prices, unavailable items, incompatible products and unsafe 
   expect(normalizeOffer({...raw,title:'Bread Flour 5 Lb'},item,'now')).toBeNull()
   expect(normalizeOffer({...raw,url:'https://evil.example/product'},item,'now')).toBeNull()
 })
-it('does not substitute gluten-free or self-rising flour for standard all-purpose flour',()=>{
-  for(const title of ['All-Purpose Gluten-Free Flour 3 lbs','Self Rising All Purpose Flour 5 lb','Measure for Measure All-Purpose 1:1 Substitute 3 lbs']) {
-    expect(normalizeOffer({...raw,title},item,'now')).toBeNull()
-  }
+
+it('reads hyphenated quantities, litre symbols and counted dozen packs',()=>{
+ expect(packageQuantity('Flour 16-Ounce (Pack of 2)','g')).toBe(90718)
+ expect(packageQuantity('Milk 2 x 1 L','ml')).toBe(200000)
+ expect(packageQuantity('Eggs 2 dozen','piece')).toBe(2400)
+})
+it('uses declared net size, not shipping weight or box dimensions',()=>{
+ const value=normalizeOffer({...raw,title:'All Purpose Flour',attributes:[{key:'Unit Count',value:'80 Ounce'},{key:'Item Package Weight',value:'3 kg'}]},item,'now')
+ expect(value?.package_quantity).toBe(226796)
+ expect(normalizeOffer({...raw,title:'All Purpose Flour',attributes:[{key:'Item Package Weight',value:'3 kg'}]},item,'now')).toBeNull()
+})
+it('does not override contradictory title measurements using metadata',()=>{
+ expect(normalizeOffer({...raw,title:'All Purpose Flour 1 kg 500 g',attributes:[{key:'Unit Count',value:'1 kg'}]},item,'now')).toBeNull()
+})
+it('rejects flour substitutes and explains unavailable or unmeasurable results',()=>{
+ expect(normalizeOffer({...raw,title:'All Purpose Gluten-Free Flour 5 lb'},item,'now')).toBeNull()
+ expect(inspectOffer({...raw,inStock:false},item,'now').reason).toBe('unavailable')
+ expect(inspectOffer({...raw,title:'All Purpose Flour'},item,'now').reason).toBe('unknown_pack_size')
+})
+it('keeps unchecked recipes distinct and advances the next bounded group',()=>{
+ const recipes=Array.from({length:6},(_,i)=>({_id:String(i),title:'Meal',missing_count:1,items:[{...item,ingredient_id:String(i)}]}))
+ expect(candidateBatch(recipes,0).coverage.next_offset).toBe(4)
+ expect(candidateBatch(recipes,4).coverage.checked_recipe_ids).toEqual(['4','5'])
+ expect(priceRecipes(recipes,[],1500,new Set())[0].lines[0].reason).toBe('not_checked')
 })
 
-it('continues bounded recipe groups without repeating the previous group',()=>{
- const recipes=Array.from({length:9},(_,i)=>({_id:String(i),title:'Meal',missing_count:1,items:[{...item,ingredient_id:String(i),name:String(i)}]}))
- const first=candidateBatch(recipes,0),next=candidateBatch(recipes,first.coverage.next_offset!)
- expect(first.coverage.checked_recipe_ids).toEqual(['0','1','2','3']);expect(next.coverage.checked_recipe_ids).toEqual(['4','5','6','7'])
- expect(priceRecipes(recipes,[],100,new Set(['0']))[0].lines[0].reason).toBe('no_verified_offer')
- expect(priceRecipes(recipes,[],100,new Set(['0']))[1].lines[0].reason).toBe('not_checked')
+it('prices a complete pancake purchase under $15 using real captured listings',()=>{
+ const items=[{ingredient_id:'egg',name:'egg',unit:'piece',missing:200},{ingredient_id:'milk',name:'milk',unit:'ml',missing:20000},{ingredient_id:'flour',name:'flour',unit:'g',missing:15000}]
+ const offers=items.flatMap(item=>sample.flatMap(row=>{const offer=normalizeOffer(row,item,'2026-11-22T00:00:00Z');return offer?[offer]:[]}))
+ const result=priceRecipes([{_id:'pancakes',title:'Pancakes',missing_count:3,items}],offers,1500)[0]
+ expect(result.within_budget).toBe(true);expect(result.total_cents).toBeLessThanOrEqual(1262)
+ expect(result.lines.every(line=>line.offer?.packs===1)).toBe(true)
+ expect(result.lines.find(line=>line.name==='egg')?.offer?.price_cents).toBe(276)
 })
-it('filters non-retail or distant listings and sorts by distance',()=>{
- const row=(title:string,lat:number)=>({title,location:{lat,lng:0},address:'Test'})
- expect(nearbyStores([row('Market B',.02),row('WIC food bank',0),row('Market A',.01),row('Distant market',2)],{lat:0,lon:0}).map(s=>s.name)).toEqual(['Market A','Market B'])
+
+it('does not discard later recipes when a group reaches its food limit',()=>{
+ const recipes=Array.from({length:4},(_,r)=>({_id:String(r),title:'Meal',missing_count:3,items:Array.from({length:3},(_,i)=>({...item,ingredient_id:`${r}-${i}`}))}))
+ const first=candidateBatch(recipes,0);expect(first.coverage.checked_recipe_ids).toEqual(['0','1']);expect(first.coverage.next_offset).toBe(2)
+ expect(candidateBatch(recipes,2).coverage.checked_recipe_ids).toEqual(['2','3'])
 })

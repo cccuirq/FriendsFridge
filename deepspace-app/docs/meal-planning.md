@@ -69,7 +69,7 @@ and expiry in the application's SQLite Durable Object. The server controls
 actor IDs, search URLs and limits; callers cannot run arbitrary actors or
 retrieve someone else's job. Duplicate job IDs cannot start another run.
 
-Price jobs cap at 18 products and $0.12 per run. Map jobs cap at six stores
+Price jobs cap at 42 products and $0.25 per run. Map jobs cap at six stores
 and require a provider minimum reserve of $0.50 (actual sample cost $0.0242).
 Daily quote attempts cap at three per user/eight per app; location attempts
 cap at twelve per user/forty per app. Providers settle their actual usage;
@@ -107,3 +107,5 @@ sort by approximate straight-line distance (within 15 km), and collapse after
 completion. Listings still require confirmation before travel. Personal JSON
 export is available on the profile page; photos remain authorized URLs rather
 than embedded image backups. See [upgrade acceptance](upgrade-acceptance.md).
+
+Current quote coverage, package parsing and the verified $5.49 example are documented in [pricing verification repair](pricing-verification-fix.md).

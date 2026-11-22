@@ -1,0 +1,435 @@
+[
+  {
+    "title": "Vital Farms, Eggs Pasture Raised Large, 18 Count",
+    "url": "https://www.amazon.com/dp/B01MZHDHVM?language=en",
+    "price": {
+      "value": 10.99,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Units",
+        "value": "18 Count"
+      }
+    ]
+  },
+  {
+    "title": "Vital Farms, Organic Pasture-Raised Large Eggs 12ct",
+    "url": "https://www.amazon.com/dp/B00M1QWODW?language=en",
+    "price": null,
+    "inStock": false,
+    "attributes": [
+      {
+        "key": "Units",
+        "value": "12 Count"
+      }
+    ]
+  },
+  {
+    "title": "Maruchan Instant Lunch Ramen Noodles, Chicken Flavor \u2013 (12 Pack)",
+    "url": "https://www.amazon.com/dp/B00MIK4GCS?language=en",
+    "price": {
+      "value": 5.31,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Item Package Weight",
+        "value": "1.07 kg"
+      },
+      {
+        "key": "Unit Count",
+        "value": "27 Ounce"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "Pack of 12"
+      },
+      {
+        "key": "Size",
+        "value": "2.25 Ounce (Pack of 12)"
+      },
+      {
+        "key": "Units",
+        "value": "27 Ounce"
+      }
+    ]
+  },
+  {
+    "title": "Amazon Grocery, Cage Free Large White Eggs, Grade A, 18 Ct",
+    "url": "https://www.amazon.com/dp/B0F79Y7SGK?language=en",
+    "price": {
+      "value": 2.76,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Units",
+        "value": "18 Count"
+      }
+    ]
+  },
+  {
+    "title": "365 by Whole Foods Market, Organic All Purpose Flour, 80 Ounce",
+    "url": "https://www.amazon.com/dp/B074VD2ZJH?language=en",
+    "price": {
+      "value": 5.41,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Item Package Weight",
+        "value": "2.28 kg"
+      },
+      {
+        "key": "Unit Count",
+        "value": "80 Ounce"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "80 Ounce"
+      },
+      {
+        "key": "Size",
+        "value": "80 Ounce (Pack of 1)"
+      },
+      {
+        "key": "Units",
+        "value": "80 Ounce"
+      }
+    ]
+  },
+  {
+    "title": "Amazon Grocery, Cage-Free Extra Large White Eggs, Grade A, 12 Ct",
+    "url": "https://www.amazon.com/dp/B0FBNVS43Q?language=en",
+    "price": null,
+    "inStock": false,
+    "attributes": [
+      {
+        "key": "Units",
+        "value": "12 Count"
+      }
+    ]
+  },
+  {
+    "title": "365 by Whole Foods Market, All Purpose Flour, 80 Ounce",
+    "url": "https://www.amazon.com/dp/B074JD6HHH?language=en",
+    "price": {
+      "value": 2.89,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Item Package Weight",
+        "value": "2.32 kg"
+      },
+      {
+        "key": "Unit Count",
+        "value": "80 Ounce"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "80 Ounce"
+      },
+      {
+        "key": "Size",
+        "value": "80 Ounce (Pack of 1)"
+      },
+      {
+        "key": "Units",
+        "value": "80 Ounce"
+      }
+    ]
+  },
+  {
+    "title": "King Arthur Gluten-Free Bread Flour, 1:1 Replacement for Yeasted Recipes, 2 lb (Pack of 1) - Premium GF Flour for Artisan Boules, Bagels, Cinnamon Rolls & Burger Buns - Sorghum & Xanthan Gum",
+    "url": "https://www.amazon.com/dp/B0C4QGSRSF?language=en",
+    "price": {
+      "value": 10.99,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Item Package Weight",
+        "value": "0.94 kg"
+      },
+      {
+        "key": "Unit Count",
+        "value": "32 Ounce"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "2 lb"
+      },
+      {
+        "key": "Size",
+        "value": "32 Ounce (Pack of 1)"
+      },
+      {
+        "key": "Units",
+        "value": "32 Ounce"
+      }
+    ]
+  },
+  {
+    "title": "Amazon Grocery, All Purpose Flour, 5 Lb",
+    "url": "https://www.amazon.com/dp/B07Z7DY1N8?language=en",
+    "price": null,
+    "inStock": false,
+    "attributes": [
+      {
+        "key": "Item Package Weight",
+        "value": "2.32 kg"
+      },
+      {
+        "key": "Unit Count",
+        "value": "80 Ounce"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "5 Lb"
+      },
+      {
+        "key": "Size",
+        "value": "80 Ounce (Pack of 1)"
+      },
+      {
+        "key": "Units",
+        "value": "80 Ounce"
+      }
+    ]
+  },
+  {
+    "title": "Amazon Grocery, Enriched Bread Flour, Unbleached, 5 Lb",
+    "url": "https://www.amazon.com/dp/B0BJ15HGYR?language=en",
+    "price": {
+      "value": 2.72,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Item Package Weight",
+        "value": "2.32 kg"
+      },
+      {
+        "key": "Unit Count",
+        "value": "80 Ounce"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "5 Pound"
+      },
+      {
+        "key": "Size",
+        "value": "80 Ounce (Pack of 1)"
+      },
+      {
+        "key": "Units",
+        "value": "80 Ounce"
+      }
+    ]
+  },
+  {
+    "title": "Amazon Grocery, Cage Free Large Brown Eggs, Grade A, 18 Ct",
+    "url": "https://www.amazon.com/dp/B0F79TT5TQ?language=en",
+    "price": null,
+    "inStock": false,
+    "attributes": [
+      {
+        "key": "Units",
+        "value": "18 Count"
+      }
+    ]
+  },
+  {
+    "title": "Organic Valley Grassmilk Organic Whole Milk, 59 fl oz",
+    "url": "https://www.amazon.com/dp/B06XWL6TFW?language=en",
+    "price": {
+      "value": 6.97,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Unit Count",
+        "value": "59 Fluid Ounces"
+      },
+      {
+        "key": "Item Package Weight",
+        "value": "2.03 kg"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "59 Fl Oz"
+      },
+      {
+        "key": "Units",
+        "value": "59 Fluid Ounces"
+      }
+    ]
+  },
+  {
+    "title": "Amazon Grocery, Whole Milk, 1 Gallon, 128 Fl Oz",
+    "url": "https://www.amazon.com/dp/B0D6TFZBF8?language=en",
+    "price": null,
+    "inStock": false,
+    "attributes": [
+      {
+        "key": "Unit Count",
+        "value": "128 Fluid Ounces"
+      },
+      {
+        "key": "Item Package Weight",
+        "value": "8.7 pounds"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "1 Gallon"
+      },
+      {
+        "key": "Units",
+        "value": "128 Fluid Ounces"
+      }
+    ]
+  },
+  {
+    "title": "Organic Valley, Organic Whole Milk, 64 oz",
+    "url": "https://www.amazon.com/dp/B000O6K8TI?language=en",
+    "price": {
+      "value": 5.99,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Unit Count",
+        "value": "1 Count"
+      },
+      {
+        "key": "Item Package Weight",
+        "value": "2 kg"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "Half Gallon"
+      },
+      {
+        "key": "Units",
+        "value": "1 Count"
+      }
+    ]
+  },
+  {
+    "title": "Amazon Grocery, Whole Milk, Half Gallon, 64 Fl Oz",
+    "url": "https://www.amazon.com/dp/B0D6TLHBDX?language=en",
+    "price": null,
+    "inStock": false,
+    "attributes": [
+      {
+        "key": "Unit Count",
+        "value": "64 Fluid Ounces"
+      },
+      {
+        "key": "Item Package Weight",
+        "value": "4.2 pounds"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "Half Gallon"
+      },
+      {
+        "key": "Units",
+        "value": "64 Fluid Ounces"
+      }
+    ]
+  },
+  {
+    "title": "Califia Farms - Oat Barista Blend Oat Milk, 32 Oz (Pack of 6), Shelf Stable, Dairy Free, Plant Based, Vegan, Gluten Free, Non GMO, High Calcium, Milk Frother, Creamer, Oatmilk",
+    "url": "https://www.amazon.com/dp/B07PBFNYXV?language=en",
+    "price": {
+      "value": 27.54,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Unit Count",
+        "value": "192 Fluid Ounces"
+      },
+      {
+        "key": "Item Package Weight",
+        "value": "6.21 kg"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "32 Fl Oz (Pack of 6)"
+      },
+      {
+        "key": "Units",
+        "value": "192 Fluid Ounces"
+      }
+    ]
+  },
+  {
+    "title": "King Arthur, Organic 100% Bread Flour, Unbleached, 5 lb (Pack of 1) - Non-GMO Project Verified, No Preservatives",
+    "url": "https://www.amazon.com/dp/B00P6ERTS6?language=en",
+    "price": {
+      "value": 7.92,
+      "currency": "$"
+    },
+    "inStock": true,
+    "attributes": [
+      {
+        "key": "Item Package Weight",
+        "value": "2.25 kg"
+      },
+      {
+        "key": "Unit Count",
+        "value": "80 Ounce"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "5 lb"
+      },
+      {
+        "key": "Size",
+        "value": "80 Ounce (Pack of 1)"
+      },
+      {
+        "key": "Units",
+        "value": "80 Ounce"
+      }
+    ]
+  },
+  {
+    "title": "fairlife, whole milk, 52 fl oz",
+    "url": "https://www.amazon.com/dp/B00QM3LZQM?language=en",
+    "price": null,
+    "inStock": false,
+    "attributes": [
+      {
+        "key": "Unit Count",
+        "value": "52 Fluid Ounces"
+      },
+      {
+        "key": "Item Package Weight",
+        "value": "1.47 kg"
+      },
+      {
+        "key": "Package Size Name",
+        "value": "52 fl oz"
+      },
+      {
+        "key": "Units",
+        "value": "52 Fluid Ounces"
+      }
+    ]
+  }
+]

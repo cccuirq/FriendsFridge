@@ -25,6 +25,7 @@ export function createMealPlanner(root, { api, measure, changed }) {
     $('#meal-budget-status').textContent = 'Serving count changed. Check prices again for the updated quantities.';
     $('#meal-unpriced').hidden = true; changed('servings');
   });
+  const reasons={not_checked:'not checked in this group',unknown_pack_size:'the product has no consistent net weight/count/volume',unavailable:'matching listings are unavailable',no_public_price:'no public non-member price',conditional_price:'only conditional/member pricing',no_matching_product:'results do not match this ingredient',no_results:'the retailer returned no products',invalid_link:'no verifiable product link',no_verified_offer:'no matching in-stock pack price'};
   const quoteBody=()=>({budget_cents:Math.round(Number($('#meal-budget').value)*100),servings:Number(servingInput.value),store:$('#meal-store').value,offset});
   function searchLabel(){if(!loading)$('#budget-search').textContent=lookups.hasPending('/api/recipes/shopping/quote',quoteBody())?'Resume lookup':'Find meals in budget';}
   function conditionsChanged(){
@@ -56,11 +57,12 @@ export function createMealPlanner(root, { api, measure, changed }) {
       $('#meal-coverage').textContent=coverage?`This group checks up to ${coverage.checked_recipe_ids.length} close-match recipes and ${coverage.ingredient_count} missing foods (${coverage.total_candidates} recipes need ingredients). Cached prices may cover other recipes too.`:'Public pack prices are checked in small groups to keep searches focused.';
       const count = response.recommendations.filter(r => r.within_budget).length;
       $('#meal-budget-status').textContent = `${count} meal${count === 1 ? '' : 's'} within ${money(budget)} · Listings checked ${new Date(response.checked_at).toLocaleString()}. Prices may be cached for up to 15 minutes. Tax and delivery excluded.`;
+      if(!count)$('#meal-budget-status').textContent=`No fully verified meal within ${money(budget)} yet. ${response.summary?.incomplete??0} recipes have missing quotes; ${response.summary?.over_budget??0} have verified totals above budget. See the candidates and exact missing prices below.`;
       const excluded = response.recommendations.filter(r => !r.within_budget);
-      $('#meal-unpriced').hidden = !excluded.length;
+      $('#meal-unpriced').hidden = !excluded.length;$('#meal-unpriced').open=count===0;
       $('#meal-unpriced ul').replaceChildren(...excluded.map(recipe => {
         const li = document.createElement('li');
-        li.textContent = recipe.status === 'unpriced' ? `${recipe.title}: ${recipe.lines.filter(line=>!line.offer).map(line=>`${line.name} — ${line.reason==='not_checked'?'not checked in this group':'no verified in-stock non-member pack price'}`).join('; ')}.` : `${recipe.title}: ${money(recipe.total_cents)}, over budget.`;
+        li.textContent = recipe.status === 'unpriced' ? `${recipe.title}: ${recipe.lines.filter(line => !line.offer).map(line => `${line.name} - ${reasons[line.reason]||reasons.no_verified_offer}`).join('; ')}.` : `${recipe.title}: ${money(recipe.total_cents)}, over budget.`;
         return li;
       }));
       changed('quote');
@@ -117,12 +119,14 @@ export function createMealPlanner(root, { api, measure, changed }) {
       if(stockSignature&&signature!==stockSignature&&quotes){quotes=undefined;clearTimeout(expiryTimer);$('#meal-budget-status').textContent='Inventory or friend availability changed. Check your budget recommendations again.';$('#meal-unpriced').hidden=true;}
       stockSignature=signature;
     },
-    includes(recipe) { return mode === 'ready' ? recipe.missing_count === 0 : mode === 'borrow' ? recipe.can_borrow : mode === 'budget' ? Boolean(quoteFor(recipe)?.within_budget) : true; },
+    includes(recipe) { return mode === 'ready' ? recipe.missing_count === 0 : mode === 'borrow' ? recipe.can_borrow : mode === 'budget' ? Boolean(quoteFor(recipe)?.within_budget || (quotes&&!quotes.recommendations.some(row=>row.within_budget)&&quotes.coverage?.checked_recipe_ids.includes(recipe._id))) : true; },
     compare(a, b) { return mode === 'budget' ? (quoteFor(a)?.total_cents ?? Infinity) - (quoteFor(b)?.total_cents ?? Infinity) : 0; },
     message() { return mode === 'borrow' ? 'No recipes can be fully covered by your friends’ shared stock yet. Ask friends to mark ingredients as Friends, or explore buying the gaps.' : mode === 'budget' ? quotes ? 'No verified recipes fit this budget. See the missing prices below or adjust your budget.' : 'Set a budget above to find meals.' : mode === 'ready' ? 'No recipes have every ingredient in stock for this serving count.' : ''; },
     decorate(card, recipe) {
       const note = document.createElement('p'); note.className = 'meal-card-note';
       if (mode === 'borrow') note.textContent = `Borrow ${recipe.missing_count} missing ingredient${recipe.missing_count === 1 ? '' : 's'} · Needs friends’ confirmation`;
+      else if (mode === 'budget' && quoteFor(recipe)?.status==='unpriced') note.textContent = `Price incomplete - ${quoteFor(recipe).lines.filter(line=>!line.offer).length} ingredient prices missing. Verified items: ${money(quoteFor(recipe).known_total_cents||0)}; total unavailable.`;
+      else if (mode === 'budget' && quoteFor(recipe)&&!quoteFor(recipe).within_budget) note.textContent=`Whole-pack cost: ${money(quoteFor(recipe).total_cents)} - above your budget`;
       else if (mode === 'budget' && quoteFor(recipe)) note.textContent = `Buy the gaps: ${money(quoteFor(recipe).total_cents)} · ${money(quoteFor(recipe).remaining_cents)} left`;
       else return;
       card.querySelector('button').before(note);
