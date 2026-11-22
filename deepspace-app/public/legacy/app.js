@@ -64,6 +64,7 @@ let directoryRevision = 0;
 let directoryTimer;
 let activityStream;
 let unreadPeers = new Set();
+let pendingFriendInvites = false;
 let unreadRevision = 0;
 const messageTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -160,6 +161,7 @@ function showAccount(user) {
   activityStream?.close();
   activityStream = null;
   unreadPeers = new Set();
+  pendingFriendInvites = false;
   renderUnread();
   $('#conversation-messages').replaceChildren();
   $('#conversation-form').reset();
@@ -420,7 +422,10 @@ function conversationUrl(peerId) {
 
 function renderUnread() {
   for (const dot of document.querySelectorAll('[data-unread-summary]')) {
-    dot.hidden = !unreadPeers.size;
+    const unread = Boolean(unreadPeers.size);
+    const pending = dot.hasAttribute('data-friends-notification') && pendingFriendInvites;
+    dot.hidden = !unread && !pending;
+    dot.setAttribute('aria-label', [unread ? 'Unread messages' : '', pending ? 'Pending friend invitations' : ''].filter(Boolean).join(' and ') || 'No notifications');
   }
   for (const dot of document.querySelectorAll('[data-unread-peer]')) {
     dot.hidden = !unreadPeers.has(dot.dataset.unreadPeer);
@@ -592,6 +597,8 @@ async function loadList(type, append = false, preservePages = false) {
     emptyList(target, emptyMessages[type]);
     $('#' + type + '-more').hidden = !hasMore;
     if (type === 'incoming' && !append) {
+      pendingFriendInvites = rows.length > 0;
+      renderUnread();
       $('#invite-dot').hidden = !rows.length;
       if (rows.length) $('#invitations-link').setAttribute('aria-label', 'Invites, pending invitations');
       else $('#invitations-link').removeAttribute('aria-label');

@@ -43,8 +43,11 @@ test('two native accounts complete the full sharing journey', async ({users}) =>
   if (friends.data.some((f:{user:{_id:string}})=>f.user._id===bob._id)) await api(a.page,`/api/friends/${bob._id}`,'DELETE')
   const invite = await api(a.page,'/api/friends/requests','POST',{user_id:bob._id})
   expect(invite.status).toBe(201)
+  await expect(b.page.locator('[data-friends-notification]')).toBeVisible({timeout:15000})
+  await expect(b.page.locator('[data-friends-notification]')).toHaveAttribute('aria-label',/Pending friend invitations/)
   expect((await api(a.page,`/api/friends/requests/${invite.data._id}`,'PATCH',{status:'accepted'})).status).toBe(404)
   expect((await api(b.page,`/api/friends/requests/${invite.data._id}`,'PATCH',{status:'accepted'})).status).toBe(200)
+  await expect(b.page.locator('[data-friends-notification]')).not.toHaveAttribute('aria-label',/Pending friend invitations/,{timeout:15000})
   const addition = {batch_id:crypto.randomUUID(),ingredient_id:egg,quantity:500,visibility:'friends'}
   expect((await api(a.page,'/api/inventory','POST',addition)).status).toBe(200)
   expect((await api(a.page,'/api/inventory','POST',addition)).data.replayed).toBe(true)
