@@ -1,5 +1,7 @@
 # Cabinet and photo picker appearance release
 
+> Update (November 22, 2026): At the user's request, the cabinet shell changes below were reverted. The original cabinet, existing dimensional door and refined photo picker are now live in release `rel_01M8257V1RHA82F8HMXD477YZS` (source `ac7a427`). Earlier shell screenshots and checks below are historical.
+
 Verified: November 22, 2026 (America/Chicago).
 
 - Live: https://friends-fridge-jianghui.app.space
