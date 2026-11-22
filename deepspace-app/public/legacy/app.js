@@ -116,6 +116,7 @@ async function api(path, method = 'GET', body) {
     if (response.status === 401 && version === generation) location.assign('/home');
     const error = new Error(result.error?.message || 'Request failed. Please try again.');
     error.status = response.status;
+    error.code = result.error?.code;
     throw error;
   }
   return result.data;
@@ -800,6 +801,7 @@ function refreshLive() {
   if (conversation) refreshOpenConversation(conversation);
   if (!$('#friends-page').hidden) loadDirectory().catch(() => {});
   if (!$('#my-fridge-page').hidden) inventoryPage.refresh();
+  if (!$('#recipes-page').hidden) recipesPage.refresh();
 }
 
 $('#conversation-share-recipe').addEventListener('click', (event) => run(event.currentTarget, async () => {
@@ -881,27 +883,6 @@ $('#request-form').addEventListener('submit', async (event) => {
     control.disabled = false;
   }
 });
-
-for (const mode of ['login', 'register']) {
-  $('#show-' + mode).addEventListener('click', () => {
-    for (const item of ['login', 'register']) {
-      $('#' + item + '-form').hidden = mode !== item;
-      $('#show-' + item).setAttribute('aria-pressed', String(item === mode));
-    }
-    notice();
-  });
-  $('#' + mode + '-form').addEventListener('submit', (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    run(form.querySelector('button'), async () => {
-      const user = await api('/api/auth/' + mode, 'POST', Object.fromEntries(new FormData(form)));
-      announceAccountChange();
-      form.reset();
-      showAccount(user);
-      await refresh();
-    });
-  });
-}
 
 $('#profile-form').addEventListener('submit', (event) => {
   event.preventDefault();
@@ -997,3 +978,9 @@ try {
 } catch (error) {
   if (error.status !== 401) notice(error.message, true);
 }
+
+$('#profile-export').addEventListener('click', async event => {
+ const button=event.currentTarget;button.disabled=true;const status=$('#profile-export-status');
+ try {const data=await api('/api/users/me/export');const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='friends-fridge-export.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='Your data export is ready. Keep it private: it includes your conversations.';}
+ catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+});

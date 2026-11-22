@@ -2,7 +2,7 @@
   "verified_date": "2026-11-21",
   "timezone": "America/Chicago",
   "live_url": "https://friends-fridge-jianghui.app.space",
-  "release_id": "rel_01M7ZX2TWMS8R43NCVSVESSAAE",
+  "release_id": "rel_01M80MTN3CWW4AWAFWXSGJC1GK",
   "cloud_source_commit": "ae55190629107ab1e06d260d847532c46f4c95ed",
   "original_cs409_base": "9f1e164",
   "checks": {
@@ -35,5 +35,46 @@
     "unit": "npm run validate",
     "local": "npx deepspace test run all --port 5198",
     "production": "FRIDGE_TEST_URL=https://friends-fridge-jianghui.app.space FRIDGE_SHOPPING_LIVE=1 npx playwright test --config tests/playwright.config.ts --workers 2"
+  },
+  "rollback_to": "rel_01M7ZX2TWMS8R43NCVSVESSAAE",
+  "upgrade_attempt": {
+    "cloud_source_commit": "728e385",
+    "releases": [
+      "rel_01M80MC6R2WESYKHV95QVVCW6E",
+      "rel_01M80MNRH1AJ8MDWZ9AY2CKEC0"
+    ],
+    "unit_tests": {
+      "passed": 33,
+      "failed": 0
+    },
+    "local_browser_api": {
+      "passed": 10,
+      "failed": 0
+    },
+    "additional_expiry_browser_test": "passed; no automatic paid request",
+    "production_browser_api": {
+      "passed": 8,
+      "failed": 2
+    },
+    "status": "not production accepted; stable release restored",
+    "observed_errors": [
+      "Unexpected field for new borrow request_id",
+      "Unknown shopping operation for getMany",
+      "Room revision unknown while Worker reports upgrade revision"
+    ],
+    "maintenance": "Auto-review rejected a temporary production interruption without explicit user approval. No maintenance release shipped. Approval requested and pending.",
+    "stable_recovery_checks": {
+      "core_browser_api": {
+        "passed": 9,
+        "failed": 0,
+        "real_shopping_providers": false
+      },
+      "paid_provider_check": {
+        "passed": 8,
+        "failed": 1,
+        "observed": "Supplier returned gluten-free substitute flour; the standard-flour match is too broad in the old release. New source rejects substitutions and adds a unit regression. Not yet live."
+      },
+      "initial_recovery_test_fixture": "An obsolete test fixture failed on duplicate historical QA titles; repeated using the final stable fixture at 2caa4f77."
+    }
   }
 }

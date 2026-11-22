@@ -11,7 +11,7 @@ interface Stock { _id: string; user_id: string; ingredient_id: string; quantity:
 interface Friendship { _id: string; user_low_id: string; user_high_id: string; requested_by: string; status: string; created_at: string; updated_at: string; counters: Record<string, { received: number; read: number }> }
 interface Recipe { _id: string; author_id: string | null; title: string; description: string; instructions: string; servings: number; visibility: string; items: { ingredient_id: string; quantity: number }[]; image_key?: string; created_at: string; updated_at: string }
 interface Message { _id: string; sender_id: string; recipient_id: string; text: string; created_at: string }
-interface Borrow { _id: string; requester_id: string; owner_id: string; ingredient_id: string; quantity: number; message: string; status: string; created_at: string; updated_at: string }
+interface Borrow { client_request_id?:string; _id: string; requester_id: string; owner_id: string; ingredient_id: string; quantity: number; message: string; status: string; created_at: string; updated_at: string }
 interface Share { _id: string; recipe_id: string; sender_id: string; recipient_id: string; recipe_title: string; status: string; message: string; created_at: string; updated_at: string }
 export interface State { version: number; profiles: Profile[]; ingredients: Ingredient[]; stock: Stock[]; friends: Friendship[]; recipes: Recipe[]; messages: Message[]; requests: Borrow[]; shares: Share[]; saves: { user_id: string; recipe_id: string }[]; batches: { user_id: string; batch_id: string; fingerprint: string }[] }
 export interface Result { data: unknown; status?: number; notify?: string[]; event?: string; imageKey?: string; deleteImages?: string[] }
@@ -72,6 +72,24 @@ export function command(s: State, subject: string, method: string, url: URL, bod
   const canView = (r: Recipe | undefined) => Boolean(r && (r.author_id === me || r.visibility === 'public' || (r.author_id && isFriend(r.author_id) && (r.visibility === 'friends' || s.shares.some(a => a.recipe_id === r._id && a.sender_id === r.author_id && a.recipient_id === me && a.status === 'accepted')))))
   const safeFriend = (f: Friendship) => ({ _id: f._id, user_low_id: f.user_low_id, user_high_id: f.user_high_id, requested_by: f.requested_by, status: f.status, created_at: f.created_at, updated_at: f.updated_at })
   const vis = (v: unknown) => { if (v !== 'private' && v !== 'friends') fail(400, 'INVALID_VISIBILITY', 'Choose Only me or Friends.'); return v as string }
+
+  if (path === '/api/users/me/export' && method === 'GET') {
+    return { data: {
+      export_version: 1, exported_at: now(), user: ownProfile(actor),
+      ingredients: s.ingredients,
+      inventory: s.stock.filter(row => row.user_id === me),
+      recipes: s.recipes.filter(r => r.author_id === me).map(({image_key, ...recipe}) => ({
+        ...recipe, ...(image_key ? {image_url: `/api/recipes/${recipe._id}/image`} : {}),
+      })),
+      saved_recipes: s.saves.filter(row => row.user_id === me && canView(s.recipes.find(r => r._id === row.recipe_id))),
+      friendships: s.friends.filter(f => [f.user_low_id, f.user_high_id].includes(me)).map(f => ({
+        ...safeFriend(f), user: publicProfile(person(f.user_low_id === me ? f.user_high_id : f.user_low_id)!),
+      })),
+      messages: s.messages.filter(row => row.sender_id === me || row.recipient_id === me),
+      ingredient_requests: s.requests.filter(row => row.owner_id === me || row.requester_id === me),
+      recipe_shares: s.shares.filter(row => row.sender_id === me || row.recipient_id === me),
+    } }
+  }
 
   if (path === '/api/users/me') {
     if (method === 'GET') return { data: ownProfile(actor) }
@@ -197,9 +215,11 @@ export function command(s: State, subject: string, method: string, url: URL, bod
   if (path === '/api/friends/ingredient-requests') {
     if (method === 'GET') return { data: page(s.requests.filter(r => r.owner_id === me || r.requester_id === me).sort(byTime)).map(r => ({ ...r, ingredient: food(r.ingredient_id), person: publicProfile(person(r.owner_id === me ? r.requester_id : r.owner_id)!) })) }
     if (method === 'POST') {
-      fields(body,['owner_id','ingredient_id','quantity','message']); const peer = id(body.owner_id), ingredientId = id(body.ingredient_id), amount = quantity(body.quantity,1); requireFriend(peer)
+      fields(body,['owner_id','ingredient_id','quantity','message','request_id']); const peer = id(body.owner_id), ingredientId = id(body.ingredient_id), amount = quantity(body.quantity,1); requireFriend(peer)
+      const clientId=body.request_id===undefined?undefined:id(body.request_id),message=text(body.message || '','Message',0,500)
+      if(clientId){const previous=s.requests.find(r=>r.requester_id===me&&r.client_request_id===clientId);if(previous){if(previous.owner_id!==peer||previous.ingredient_id!==ingredientId||previous.quantity!==amount||previous.message!==message)fail(409,'REQUEST_CONFLICT','This request ID was already used for different contents.');return {data:previous,status:201}}}
       const current = stock(peer,ingredientId); if (!current || current.visibility !== 'friends' || current.quantity < amount) fail(409,'INGREDIENT_UNAVAILABLE','This shared ingredient is unavailable in that quantity.')
-      const r = { _id: uid(), requester_id: me, owner_id: peer, ingredient_id: ingredientId, quantity: amount, message: text(body.message || '','Message',0,500), status: 'pending', created_at: now(), updated_at: now() }; s.requests.push(r); delivered(me,peer); return { data: r, status: 201, notify: [me,peer] }
+      const r = { _id: uid(), requester_id: me, owner_id: peer, ingredient_id: ingredientId, quantity: amount, message, ...(clientId?{client_request_id:clientId}:{}), status: 'pending', created_at: now(), updated_at: now() }; s.requests.push(r); delivered(me,peer); return { data: r, status: 201, notify: [me,peer] }
     }
   }
   match = /^\/api\/friends\/ingredient-requests\/([^/]+)$/.exec(path)
@@ -236,7 +256,7 @@ export function command(s: State, subject: string, method: string, url: URL, bod
           const ingredient = food(i.ingredient_id)!, available = stock(me,i.ingredient_id)?.quantity || 0
           const required = quantity(Math.ceil(i.quantity * planned / r.servings),1)
           const borrow_sources = s.stock.filter(row=>row.ingredient_id===i.ingredient_id&&row.visibility==='friends'&&row.quantity>0&&isFriend(row.user_id)).map(row=>({user:publicProfile(person(row.user_id)!),quantity:row.quantity}))
-          return {ingredient_id:i.ingredient_id,name:ingredient.name,unit:ingredient.default_unit,base_required:i.quantity,required,available,missing:Math.max(0,required-available),borrow_sources}
+          return {ingredient_id:i.ingredient_id,name:ingredient.name,unit:ingredient.default_unit,base_required:i.quantity,required,available,missing:Math.max(0,required-available),borrow_sources,pending_requested:s.requests.filter(r=>r.requester_id===me&&r.ingredient_id===i.ingredient_id&&['pending','accepted'].includes(r.status)).reduce((n,r)=>n+r.quantity,0)}
         })
         const share = s.shares.find(a => a.recipe_id === r._id && a.sender_id === r.author_id && a.recipient_id === me && a.status === 'accepted' && isFriend(a.sender_id))
         return { _id: r._id, title: r.title, description: r.description, instructions: r.instructions, servings: r.servings, planned_servings:planned, can_borrow:items.some(i=>i.missing>0)&&items.every(i=>i.borrow_sources.reduce((sum,row)=>sum+row.quantity,0)>=i.missing), items, missing_count: items.filter(i => i.missing > 0).length, owned: r.author_id === me, saved: s.saves.some(a => a.user_id === me && a.recipe_id === r._id), shared: Boolean(share), ...(share ? { share_id: share._id } : {}), ...(r.image_key ? { image_url: `/api/recipes/${r._id}/image` } : {}) }

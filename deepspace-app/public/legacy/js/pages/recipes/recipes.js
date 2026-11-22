@@ -37,7 +37,7 @@ export function createRecipesPage(root, { api, measure }) {
   const photoPreview = $('#recipe-photo-preview');
   let photoUrl;
   let photoVersion = 0;
-  let version = 0;
+  let version = 0, revision = 0, refreshing;
   let data;
   let selected;
   let filter = 'all';
@@ -46,7 +46,8 @@ export function createRecipesPage(root, { api, measure }) {
   let removeImage = false;
   const planner = createMealPlanner(root, { api, measure, changed: reason => {
     if (reason === 'servings') { selected = undefined; show(browse); load(); }
-    else renderList();
+    else if (reason === 'synchronize' || reason === 'borrow') return refresh(true);
+    else { renderList(); if(reason==='expired'&&selected&&!detail.hidden)showRecipe(selected,false); }
   } });
 
   function showExistingPhoto() {
@@ -166,7 +167,7 @@ export function createRecipesPage(root, { api, measure }) {
     save.setAttribute('aria-pressed', String(selected.saved));
   }
 
-  function showRecipe(recipe) {
+  function showRecipe(recipe, focus = true) {
     selected = recipe;
     $('#recipe-owner-actions').hidden = !recipe.owned;
     $('#recipe-delete-confirm').hidden = true;
@@ -203,18 +204,18 @@ export function createRecipesPage(root, { api, measure }) {
       ...friends.map((friend) => new Option(`${friend.display_name} (@${friend.username})`, friend._id)));
     detailStatus.textContent = recipe.owned && !friends.length ? 'Add a friend to share this recipe.' : '';
     renderSave();
-    title.focus();
+    if(focus)title.focus();
   }
 
   async function load(openId) {
-    const token = version;
+    const token = version, request = ++revision;
     status.textContent = 'Loading recipes…';
     retry.hidden = true;
     create.disabled = true;
     try {
       const result = await api(`${endpoint}?servings=${planner.servings}`);
-      if (token !== version) return;
-      data = result;
+      if (token !== version || request !== revision) return;
+      data = result; planner.sync(data.recipes);
       create.disabled = false;
       renderList();
       const recipe = data.recipes.find((item) => item._id === openId);
@@ -421,5 +422,15 @@ export function createRecipesPage(root, { api, measure }) {
     });
   });
 
-  return { reset, open(recipeId) { reset(); load(recipeId); } };
+  async function refresh(force=false) {
+    if(!data||root.hidden||!editor.hidden||busy)return;
+    if(!force&&root.contains(document.activeElement)&&document.activeElement.matches('input,textarea,select'))return;
+    if(refreshing){await refreshing;if(force)return refresh(true);return;}
+    const token=version,request=++revision;
+    refreshing=(async()=>{try{const result=await api(`${endpoint}?servings=${planner.servings}`);if(token!==version||request!==revision)return;
+      const changed=JSON.stringify(data)!==JSON.stringify(result);data=result;planner.sync(data.recipes);if(changed){renderList();if(selected&&!detail.hidden){const updated=data.recipes.find(row=>row._id===selected._id);if(updated)showRecipe(updated,false);else{selected=undefined;show(browse);}}}
+    }catch{/* The next live event or poll retries this read. */}})();
+    try{await refreshing;}finally{refreshing=undefined;}
+  }
+  return { reset, refresh, open(recipeId) { reset(); load(recipeId); } };
 }

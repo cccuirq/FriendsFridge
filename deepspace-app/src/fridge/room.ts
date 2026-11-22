@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env } from '../../worker'
 import { command, initialState, DomainError, type State, type Body } from './domain'
+import { FRIDGE_REVISION } from './revision'
 
 /** One serialized SQLite-backed room makes stock transfer and request state atomic.
  * No browser can address this room directly: the worker verifies the platform JWT.
@@ -8,6 +9,7 @@ import { command, initialState, DomainError, type State, type Body } from './dom
 export class FridgeRoom extends DurableObject<Env> {
   private streams = new Map<string, Set<WritableStreamDefaultWriter<Uint8Array>>>()
   private encoder = new TextEncoder()
+  private snapshot?: State
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS fridge_state (id INTEGER PRIMARY KEY CHECK (id = 1), body TEXT NOT NULL)')
@@ -15,8 +17,10 @@ export class FridgeRoom extends DurableObject<Env> {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS shopping_kv (key TEXT PRIMARY KEY, body TEXT NOT NULL, expires INTEGER NOT NULL)')
   }
   private state(): State {
+    if(this.snapshot)return this.snapshot
     const row = [...this.ctx.storage.sql.exec<{ body: string }>('SELECT body FROM fridge_state WHERE id = 1')][0]
-    return row ? JSON.parse(row.body) : initialState()
+    this.snapshot=row ? JSON.parse(row.body) : initialState()
+    return this.snapshot!
   }
   private emit(ids: string[], event?: string) {
     const bytes = this.encoder.encode(`${event ? 'event: ' + event + '\n' : ''}data: {}\n\n`)
@@ -28,7 +32,7 @@ export class FridgeRoom extends DurableObject<Env> {
     try {
       if (new URL(request.url).pathname === '/health') {
         this.ctx.storage.sql.exec('SELECT 1').toArray()
-        return Response.json({status:'ok',database:'DeepSpace Durable Object SQLite'})
+        return Response.json({status:'ok',database:'DeepSpace Durable Object SQLite',revision:FRIDGE_REVISION})
       }
       const subject = request.headers.get('x-fridge-subject')
       if (!subject) return Response.json({ error: { code: 'UNAUTHENTICATED', message: 'Please sign in.' } }, { status: 401 })
@@ -41,6 +45,7 @@ export class FridgeRoom extends DurableObject<Env> {
         const put=(k:string,value:unknown,ttl=3600000)=>{const body=JSON.stringify(value);if(body.length>200000)throw new DomainError(413,'TOO_LARGE','Shopping response too large.');this.ctx.storage.sql.exec('DELETE FROM shopping_kv WHERE expires<=?',time);this.ctx.storage.sql.exec('INSERT INTO shopping_kv (key,body,expires) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET body=excluded.body,expires=excluded.expires',k,body,time+Math.min(ttl,86400000))}
         const value=this.ctx.storage.transactionSync(()=>{
           if(input.op==='get') return get(`cache:${key}`)
+          if(input.op==='getMany'){if(!Array.isArray(input.value))throw new DomainError(400,'INVALID_INPUT','Invalid cache keys.');return Object.fromEntries(input.value.slice(0,250).filter(k=>typeof k==='string').map(k=>[k,get(`cache:${k}`)]))}
           if(input.op==='put'){put(`cache:${key}`,input.value,input.ttl??(key.startsWith('offers:')?900000:3600000));return true}
           if(input.op==='limit') {
             const kind=input.kind==='quote'?'quote':'location',day=new Date().toISOString().slice(0,10)
@@ -49,8 +54,8 @@ export class FridgeRoom extends DurableObject<Env> {
             put(own,a+1,86400000);put(global,b+1,86400000);return true
           }
           const own=`job:${subject}:${key}`
-          if(input.op==='jobCreate'){if(get(own))return false;put(own,{status:'starting',next_poll:time+5000},3600000);return true}
-          if(input.op==='jobUpdate'){if(!get(own))throw new DomainError(404,'QUOTE_EXPIRED','Quote expired.');put(own,input.value,3600000);return true}
+          if(input.op==='jobCreate'){const old=get(own),meta=input.value as {fingerprint?:string}|undefined;if(old){if(old.fingerprint&&meta?.fingerprint!==old.fingerprint)throw new DomainError(409,'REQUEST_CONFLICT','This lookup ID belongs to different conditions. Start a new search.');return false}put(own,{...meta,status:'starting',created_at:new Date(time).toISOString(),next_poll:time+5000},3600000);return true}
+          if(input.op==='jobUpdate'){const old=get(own);if(!old)throw new DomainError(404,'QUOTE_EXPIRED','Quote expired.');put(own,{...input.value as object,fingerprint:old.fingerprint},3600000);return true}
           if(input.op==='jobGet'){const job=get(own);if(!job)throw new DomainError(404,'QUOTE_EXPIRED','Quote not found or expired.');const allow_poll=Number(job.next_poll||0)<=time;if(allow_poll){job.next_poll=time+3000;put(own,job,3600000)}return {...job,allow_poll}}
           throw new DomainError(400,'INVALID_INPUT','Unknown shopping operation.')
         })
@@ -93,8 +98,9 @@ export class FridgeRoom extends DurableObject<Env> {
         uploaded = `recipes/${crypto.randomUUID()}`
         imageBytes = bytes.buffer as ArrayBuffer
       }
+      let committedState:State|undefined
       const result = this.ctx.storage.transactionSync(() => {
-        const state = this.state()
+        const state = ['GET','HEAD'].includes(request.method)?this.state():structuredClone(this.state())
         const result = command(state, subject, request.method, url, body, uploaded)
         if (!['GET','HEAD'].includes(request.method)) {
           for (const key of result.deleteImages || []) this.ctx.storage.sql.exec('DELETE FROM fridge_images WHERE key = ?',key)
@@ -106,9 +112,11 @@ export class FridgeRoom extends DurableObject<Env> {
           const encoded = JSON.stringify(state)
           if (this.encoder.encode(encoded).length > 8 * 1024 * 1024) throw new DomainError(507,'STORAGE_LIMIT','This evaluation workspace is full. Contact the owner.')
           this.ctx.storage.sql.exec('INSERT INTO fridge_state (id, body) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET body = excluded.body', encoded)
+          committedState=state
         }
         return result
       })
+      if(committedState)this.snapshot=committedState
       if (result.imageKey) {
         const file = this.ctx.storage.sql.exec<{body:ArrayBuffer;content_type:string}>('SELECT body,content_type FROM fridge_images WHERE key = ?',result.imageKey).toArray()[0]
         if (!file) throw new DomainError(404,'RECIPE_NOT_FOUND','Recipe image not found.')

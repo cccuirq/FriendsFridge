@@ -1,5 +1,11 @@
 # Portal submission draft
 
+> Upgrade status: the latest source passes local tests but has not passed
+> production acceptance because the custom data room continued running its
+> previous code after deployment. The live app was restored to the last
+> verified release. Do not submit the new reliability/export claims below as
+> live features until `docs/upgrade-acceptance.md` records a successful retry.
+
 Evidence and review: [DeepSpace requirements mapping](docs/deepspace-evidence.md)
 and [prioritized optimization review](docs/optimization-review.md).
 
@@ -33,14 +39,14 @@ Additional integrations would not improve the core food-sharing workflow.
 My main tradeoff was one serialized, 8 MB SQLite workspace. This makes a
 stock transfer and request transition one understandable transaction and
 keeps the migration small. I would normalize/index the state and add chat
-retention/export before opening it to a larger audience.
+retention before opening it to a larger audience. Authenticated personal JSON export is already available.
 
 The meal planner also distinguishes meals already in stock, meals that can be
 completed by requesting friends' shared ingredients, and meals within a grocery
 budget. Native Apify jobs retrieve public non-member Amazon US listings and
 nearby shop listings independently; OpenWeather geocoding supports manual city
 entry when browser location is unavailable. Package rounding, missing prices,
-source timestamps, owner-bound jobs and credit caps are explicit. Nearby store
+source timestamps, owner-bound jobs and credit caps are explicit. Lookup receipts survive navigation and temporary connection errors; retries resume the same job. Quotes expire automatically and inventory changes refresh the recommendation list. Bounded candidate groups explain what was checked and let users explicitly request the next group. Nearby store
 prices remain unavailable, so the app clearly labels the online-price fallback
 instead of claiming local checkout prices. See `docs/meal-planning.md`.
 

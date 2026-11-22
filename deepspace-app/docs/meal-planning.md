@@ -85,3 +85,25 @@ FRIDGE_SHOPPING_LIVE=1 npx deepspace test run e2e --port 5198
 Regular tests cover package rounding, unavailable/conditional listings, missing
 prices, serving arithmetic, friendship privacy, explicit borrow requests,
 manual door toggling and desktop/mobile planning layout without paid calls.
+
+## Reliability upgrade
+
+Lookup receipts are saved before submission and scoped to the current profile.
+Navigation, reloads and transient poll errors resume the same owner-bound job;
+changed request contents under an existing ID are rejected. Terminal failures
+clear the receipt. If a provider starts but its ID cannot be persisted, the
+app times out honestly rather than automatically creating another paid run;
+this is not a claim of distributed exactly-once billing.
+
+Quotes expire after 15 minutes and invalidate when stock, budget or servings
+change. Live reads retain the current collection and meal mode. Each query
+reports its four-recipe/six-food scope, supports an explicit next group, and
+distinguishes unchecked ingredients from checked ingredients with no verified
+offer. Recipes with more than six missing foods cannot be fully checked by
+one bounded run. A zero budget never starts a provider price search.
+
+Nearby results exclude obvious closed/non-retail or restricted services,
+sort by approximate straight-line distance (within 15 km), and collapse after
+completion. Listings still require confirmation before travel. Personal JSON
+export is available on the profile page; photos remain authorized URLs rather
+than embedded image backups. See [upgrade acceptance](upgrade-acceptance.md).

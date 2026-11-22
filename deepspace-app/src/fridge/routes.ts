@@ -5,13 +5,17 @@ import { resolveAuth } from '../server/http-routes'
 import { createActionTools } from '../server/action-routes'
 import { recognizeIngredients } from './vision'
 import {handleShopping} from './shopping'
+import { FRIDGE_REVISION } from './revision'
 
 export function registerFridgeRoutes(app: Hono<AppContext>) {
   // Paid calls are server controlled, with a bounded model and a daily quota.
   app.all('/api/integrations/:name/:endpoint', c => c.json({error:'Use the app recognition flow.'},403))
-  app.get('/api/health', c => {
+  app.get('/api/health', async c => {
     const stub=c.env.FRIDGE_ROOMS.get(c.env.FRIDGE_ROOMS.idFromName(`app:${c.env.DEEPSPACE_APP_ID}`))
-    return stub.fetch(new Request('https://internal/health'))
+    const response=await stub.fetch(new Request('https://internal/health'))
+    const room=await response.json() as {status:string;database:string;revision?:string}
+    const current=room.revision===FRIDGE_REVISION
+    return c.json({...room,status:current?'ok':'updating',worker_revision:FRIDGE_REVISION,room_revision:room.revision||'unknown'},current?200:503)
   })
   app.get('/image-demo', c => c.redirect('/legacy/image-demo.html'))
   app.use('/api/*', async (c, next) => {
@@ -26,7 +30,13 @@ export function registerFridgeRoutes(app: Hono<AppContext>) {
     if(path.startsWith('/api/recipes/shopping/')) {
       const token=c.req.header('Authorization')?.slice(7)
       if(!token)return c.json({error:{code:'UNAUTHENTICATED',message:'Please sign in again.'}},401)
-      const params=c.req.method==='GET'?{}:await c.req.json<Record<string,unknown>>()
+      let params:Record<string,unknown>={}
+      if(c.req.method!=='GET') {
+        const raw=await c.req.text()
+        if(new TextEncoder().encode(raw).length>16384)return c.json({error:{code:'BODY_TOO_LARGE',message:'Lookup request is too large.'}},413)
+        try{params=JSON.parse(raw)}catch{return c.json({error:{code:'INVALID_JSON',message:'Provide a JSON object.'}},400)}
+        if(!params||typeof params!=='object'||Array.isArray(params))return c.json({error:{code:'INVALID_JSON',message:'Provide a JSON object.'}},400)
+      }
       return handleShopping({userId:auth.userId,callerJwt:token,env:c.env,tools:createActionTools(c.env,auth.userId,token),params},path,c.req.method)
     }
     if (path === '/api/recognition' && c.req.method === 'POST') {

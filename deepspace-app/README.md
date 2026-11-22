@@ -3,6 +3,13 @@
 A shared-fridge app: keep a private pantry, discover meals from what you own,
 ask a friend for a missing ingredient, and record the handoff exactly once.
 
+Live app: https://friends-fridge-jianghui.app.space
+
+Submission materials: [requirement evidence](docs/deepspace-evidence.md),
+[upgrade acceptance](docs/upgrade-acceptance.md),
+[demo and interview guide](docs/demo-and-interview.md), and
+[English submission draft](SUBMISSION.md).
+
 This is a DeepSpace adaptation of the five-person CS409 team project at
 https://github.com/cccuirq/409FinalProj, based on commit `9f1e164` by VOE-Du
 (November 18, 2026). The original application remains at the repository root.

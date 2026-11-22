@@ -48,4 +48,21 @@ describe('fridge domain invariants',()=>{
     expect(find().can_borrow).toBe(false);expect(find().items[0].borrow_sources).toEqual([])
     expect(a._id).not.toBe(b._id)
   })
+  it('exports only the current account data and excludes native identities',()=>{
+    run('bob','/api/inventory','POST',{batch_id:crypto.randomUUID(),ingredient_id:state.ingredients[0]._id,quantity:100})
+    const data=run('alice','/api/users/me/export').data as {user:Record<string,unknown>;inventory:unknown[];messages:unknown[]}
+    expect(data.user.username).toBe('alice');expect(data.user.auth_id).toBeUndefined();expect(data.inventory).toEqual([]);expect(data.messages).toEqual([])
+  })
+  it('deduplicates borrow retries and rejects changed contents',()=>{
+    const bob=state.profiles[1],food=state.ingredients[0]
+    const invitation=run('alice','/api/friends/requests','POST',{user_id:bob._id}).data as {_id:string}
+    run('bob',`/api/friends/requests/${invitation._id}`,'PATCH',{status:'accepted'})
+    run('bob','/api/inventory','POST',{batch_id:crypto.randomUUID(),ingredient_id:food._id,quantity:400,visibility:'friends'})
+    const body={request_id:crypto.randomUUID(),owner_id:bob._id,ingredient_id:food._id,quantity:200}
+    const first=run('alice','/api/friends/ingredient-requests','POST',body)
+    expect(run('alice','/api/friends/ingredient-requests','POST',body).data).toEqual(first.data)
+    expect(state.requests).toHaveLength(1)
+    expect(()=>run('alice','/api/friends/ingredient-requests','POST',{...body,quantity:300})).toThrow('different contents')
+  })
+
 })

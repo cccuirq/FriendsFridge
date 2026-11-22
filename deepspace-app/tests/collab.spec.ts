@@ -152,7 +152,7 @@ test('manual fridge door, friend borrowing and meal-planner layout',async({users
   await a.page.getByRole('button',{name:`View recipe: ${testTitle}`,exact:true}).click({timeout:15000})
   await expect(a.page.locator('.borrow-food-option')).toContainText(bob.display_name)
   await a.page.locator('.borrow-food-option').getByRole('button',{name:'Ask to borrow'}).click()
-  await expect(a.page.locator('.borrow-food-option')).toContainText('Request sent')
+  await expect(a.page.locator('.borrow-food-option')).toContainText('Already requested')
   const requests=(await api(a.page,'/api/friends/ingredient-requests')).data
   const request=requests.find((r:{requester_id:string;owner_id:string;ingredient_id:string;status:string})=>r.requester_id===alice._id&&r.owner_id===bob._id&&r.ingredient_id===food._id&&r.status==='pending')
   expect(request.quantity).toBe(20000)
@@ -181,13 +181,14 @@ test('manual fridge door, friend borrowing and meal-planner layout',async({users
     await a.page.locator('.nearby-shops summary').click()
     await a.page.locator('#meal-city').fill('Chicago, US')
     await a.page.getByRole('button',{name:'Find nearby shops',exact:true}).click()
-    await expect(a.page.locator('#meal-location-status')).toContainText('nearby listings',{timeout:180000})
+    await expect(a.page.locator('#meal-nearby-summary')).toContainText('nearby grocery listings',{timeout:180000})
+    await a.page.locator('.nearby-shops summary').click()
     await expect(a.page.locator('#meal-shops li').first()).toBeVisible()
     await a.page.screenshot({path:'.deepspace/meal-planner-nearby.png',fullPage:true})
     await a.page.context().grantPermissions(['geolocation'])
     await a.page.context().setGeolocation({latitude:41.88,longitude:-87.62})
     await a.page.getByRole('button',{name:'Use my location',exact:true}).click()
-    await expect(a.page.locator('#meal-location-status')).toContainText('nearby listings',{timeout:60000})
+    await expect(a.page.locator('#meal-nearby-summary')).toContainText('nearby grocery listings',{timeout:60000})
   }
   await a.page.setViewportSize({width:390,height:844})
   await a.page.screenshot({path:'.deepspace/meal-planner-mobile.png',fullPage:true})
@@ -200,4 +201,49 @@ test('manual fridge door, friend borrowing and meal-planner layout',async({users
       if(current)await api(page,`/api/inventory/${current._id}`,prior?'PATCH':'DELETE',prior?{quantity:prior.quantity,expected_quantity:current.quantity,visibility:prior.visibility}:{expected_quantity:current.quantity})
     }
   }
+})
+
+test('planning refreshes stock, zero-budget avoids paid search and private export downloads',async({users})=>{
+ test.setTimeout(90000)
+ const [a]=await users(1);await ready(a.page,'upgrade')
+ const me=(await api(a.page,'/api/users/me')).data
+ const foods=(await api(a.page,'/api/ingredients')).data
+ const food=foods.find((f:{name:string})=>f.name==='flour')
+ const prior=(await api(a.page,'/api/inventory')).data.find((r:{ingredient_id:string})=>r.ingredient_id===food._id)
+ let rid:string|undefined
+ try{
+  const current=(await api(a.page,'/api/inventory')).data.find((r:{ingredient_id:string})=>r.ingredient_id===food._id)
+  if(current)await api(a.page,`/api/inventory/${current._id}`,'PATCH',{quantity:0,expected_quantity:current.quantity})
+  const recipe=await api(a.page,'/api/recipes','POST',{title:`Live refresh ${Date.now()}`,instructions:'Cook.',servings:2,items:[{ingredient_id:food._id,quantity:100}]});rid=recipe.data._id
+  await a.page.locator('.main-nav a[href="#recipes"]').click()
+  await a.page.getByRole('button',{name:'In my fridge',exact:true}).click()
+  await expect(a.page.locator(`[data-recipe-id="${rid}"]`)).toHaveCount(0)
+  await api(a.page,'/api/inventory','POST',{batch_id:crypto.randomUUID(),ingredient_id:food._id,quantity:200})
+  await expect(a.page.locator(`[data-recipe-id="${rid}"]`)).toBeVisible({timeout:15000})
+  for(const invalid of [null,[]])expect((await api(a.page,'/api/recipes/shopping/quote','POST',invalid)).status).toBe(400)
+  const request_id=crypto.randomUUID(),body={request_id,budget_cents:0,servings:2,store:'amazon-us',offset:0}
+  const quote=await api(a.page,'/api/recipes/shopping/quote','POST',body)
+  expect(quote.status,JSON.stringify(quote.error)).toBe(200);expect(quote.data.status).toBe('complete');expect(quote.data.recommendations.find((r:{recipe_id:string})=>r.recipe_id===rid).total_cents).toBe(0)
+  expect((await api(a.page,'/api/recipes/shopping/quote','POST',{...body,budget_cents:1})).status).toBe(409)
+  await a.page.clock.install()
+  let priceRequests=0
+  a.page.on('request',request=>{if(request.url().endsWith('/api/recipes/shopping/quote')&&request.method()==='POST')priceRequests++})
+  await a.page.getByRole('button',{name:'Buy within budget',exact:true}).click()
+  await a.page.locator('#meal-budget').fill('0')
+  await a.page.getByRole('button',{name:'Find meals in budget',exact:true}).click()
+  await expect(a.page.locator('#meal-budget-status')).toContainText('Listings checked')
+  expect(priceRequests).toBe(1)
+  await a.page.clock.fastForward(16*60*1000)
+  await expect(a.page.locator('#meal-budget-status')).toContainText('prices have expired')
+  expect(priceRequests).toBe(1)
+  await a.page.evaluate(()=>{location.hash='#profile'})
+  const download=a.page.waitForEvent('download');await a.page.getByRole('button',{name:'Export my data'}).click()
+  expect((await download).suggestedFilename()).toBe('friends-fridge-export.json')
+  const exported=(await api(a.page,'/api/users/me/export')).data
+  expect(exported.user._id).toBe(me._id);expect(JSON.stringify(exported)).not.toContain('auth_id');expect(exported.inventory.every((r:{user_id:string})=>r.user_id===me._id)).toBe(true)
+ }finally{
+  if(rid)await api(a.page,`/api/recipes/${rid}`,'DELETE')
+  const current=(await api(a.page,'/api/inventory')).data.find((r:{ingredient_id:string})=>r.ingredient_id===food._id)
+  if(current)await api(a.page,`/api/inventory/${current._id}`,prior?'PATCH':'DELETE',prior?{quantity:prior.quantity,expected_quantity:current.quantity,visibility:prior.visibility}:{expected_quantity:current.quantity})
+ }
 })
