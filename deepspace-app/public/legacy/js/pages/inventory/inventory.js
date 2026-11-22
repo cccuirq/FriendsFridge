@@ -39,6 +39,17 @@ export function createInventoryPage(root, { api, measure }) {
   let pending;
   let busy = false;
   let refreshing = false;
+  let stockView = 'list', currentItems = [], inventorySignature = '', returnFocus;
+  const stockList = $('[data-stock]');
+  const viewButtons = [...root.querySelectorAll('[data-stock-view]')];
+  function setView(view) {
+    stockView = view;stockList.classList.toggle('stock-icons',view==='icons');
+    viewButtons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.stockView===view)));
+  }
+  for(const control of viewButtons)control.addEventListener('click',()=>{
+    if(busy||control.dataset.stockView===stockView)return;
+    setView(control.dataset.stockView);render(currentItems,true);stockList.scrollTop=0;
+  });
   const ingredient = () => catalog.find((item) => item.name.toLowerCase() === form.elements.ingredient.value.trim().toLowerCase());
   const error = (message = '') => { $('[data-stock-error]').textContent = message; };
 
@@ -74,12 +85,28 @@ export function createInventoryPage(root, { api, measure }) {
     } finally { if (current === version) setBusy(false); }
   }
 
-  function render(items) {
+  function render(items, force = false) {
+    currentItems = items;
+    const signature=JSON.stringify(items);
+    if(!force&&signature===inventorySignature)return;
+    inventorySignature=signature;
+    const scrollTop=stockList.scrollTop;
+    const active=document.activeElement;
+    const activeRow=stockList.contains(active)?active.closest('.stock-row'):null;
+    const focusedId=activeRow?.dataset.stockId;
+    const focusedIndex=activeRow?[...activeRow.querySelectorAll('button')].indexOf(active):-1;
+    stockList.hidden=!items.length;
     $('[data-stock-count]').textContent = `${items.length} food${items.length === 1 ? '' : 's'}`;
     $('[data-stock-empty]').hidden = Boolean(items.length);
     $('[data-stock]').replaceChildren(...items.map((item) => {
-      const row = document.createElement('li'); row.className = 'stock-row';
+      const row = document.createElement('li'); row.className = 'stock-row'; row.dataset.stockId=item._id;
       const icon = foodImage(item.ingredient); icon.classList.add('food-icon'); icon.setAttribute('aria-hidden', 'true');
+      if(stockView==='icons') {
+        const tile=button('',()=>open(item),'stock-icon-button');
+        tile.setAttribute('aria-label',`Edit ${item.ingredient.name}, ${measure(item.quantity,item.ingredient.default_unit)}, ${item.visibility==='friends'?'shared with friends':'private'}`);
+        tile.title=`${item.ingredient.name}: ${measure(item.quantity,item.ingredient.default_unit)}`;
+        tile.append(icon);row.append(tile);return row;
+      }
       const details = document.createElement('div'); details.className = 'stock-details';
       const name = document.createElement('strong'); name.className = 'ingredient-name'; name.textContent = item.ingredient.name;
       const amount = document.createElement('span'); amount.className = 'muted'; amount.textContent = item.quantity ? measure(item.quantity, item.ingredient.default_unit) : 'Out of stock';
@@ -99,6 +126,11 @@ export function createInventoryPage(root, { api, measure }) {
       }, 'danger'));
       row.append(icon, details, controls); return row;
     }));
+    stockList.scrollTop=scrollTop;
+    if(focusedId&&focusedIndex>=0){
+      const target=[...stockList.children].find(row=>row.dataset.stockId===focusedId)?.querySelectorAll('button')[focusedIndex];
+      target?.focus({preventScroll:true});
+    }
   }
 
   async function load() {
@@ -111,6 +143,7 @@ export function createInventoryPage(root, { api, measure }) {
 
   function open(item) {
     if (busy) return;
+    returnFocus=document.activeElement;
     editing = item; pending = undefined; form.reset(); error();
     $('[data-stock-picker]').hidden = Boolean(item);
     form.elements.ingredient.required = !item;
@@ -129,7 +162,7 @@ export function createInventoryPage(root, { api, measure }) {
   $('[data-stock-add]').addEventListener('click', () => open());
   $('[data-stock-cancel]').addEventListener('click', () => { if (!busy) dialog.close(); });
   dialog.addEventListener('cancel', (event) => { if (busy) event.preventDefault(); });
-  dialog.addEventListener('close', () => { pending = undefined; editing = undefined; $('[data-stock-add]').focus(); });
+  dialog.addEventListener('close', () => { pending = undefined; editing = undefined; if(!root.hidden)(returnFocus?.isConnected?returnFocus:$('[data-stock-add]')).focus({preventScroll:true});returnFocus=undefined; });
   form.elements.ingredient.addEventListener('input', () => { $('[data-stock-unit]').textContent = ingredient()?.default_unit || 'Choose a listed ingredient'; });
   form.addEventListener('submit', async (event) => {
     event.preventDefault(); if (busy) return;
@@ -192,6 +225,8 @@ export function createInventoryPage(root, { api, measure }) {
       finally { refreshing = false; }
     },
     reset(accountChanged = false) {
+      currentItems=[];inventorySignature='';stockList.scrollTop=0;
+      if(accountChanged)setView('list');
       version++; dialog.close(); pending = undefined; editing = undefined; busy = false; catalog = [];
       $('[data-stock]').replaceChildren(); status.textContent = ''; $('[data-stock-empty]').hidden = true;
       if (accountChanged) { doorMoving = false; interior.inert = true; root.classList.remove('fridge-open'); door.setAttribute('aria-expanded','false'); door.setAttribute('aria-label','Open fridge door'); }
